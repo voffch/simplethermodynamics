@@ -1,0 +1,42 @@
+[project]
+name = "simplethermodynamics"
+dynamic = ["version"]
+description = "Simple tools for thermodynamic calculations"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE.txt"}
+keywords = ["thermodynamics"]
+authors = [
+  {name = "Vladimir Sereda", email = "voffch@gmail.com" }
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+  "numpy",
+  "scipy",
+  "numdifftools",
+  "sympy",
+  "matplotlib"
+]
+[project.urls]
+"Homepage" = "https://example.com"
+"Bug Reports" = "https://example.com"
+"Source" = "https://example.com"
+[tool.setuptools]
+# Data files that need to be installed.
+# package-data = {"sample" = ["*.dat"]}
+[tool.setuptools.dynamic]
+version = {attr = "simplethermodynamics.__version__"}
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
