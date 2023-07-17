@@ -11,7 +11,7 @@ import itertools
 
 
 T = Symbol('T')
-R = 8.314472
+R = 8.314462618
 
 
 class Phase:
@@ -318,7 +318,7 @@ class Phase:
         for i, func_name in enumerate(['cp', 'h', 'g', 's']):
             func = getattr(self, func_name)
             values[i + 1] = func(values[0])
-        values[-1] = values[2] - values[2, 0] # h(T) - h298.15(T)
+        values[-1] = values[2] - values[2, 0] # it's h(T) - h298.15(T)
         # converting to string
         # the output table will look very ugly with unrealistic values 
         # (e.g., really huge Cp or S)
@@ -400,6 +400,53 @@ ________{col_sep}________{col_sep}___________{col_sep}___________{col_sep}______
             raise ValueError(f'Cannot plot "{func}"')
 
 
+def find_phase_limits(phase, default_limits=(298.15, 1e6)):
+    """Finds the lower and upper limits of the Gibbs function.
+
+    Outside the returned limits, the Gibbs functions are expected
+    to be constant (nonsensical).
+
+    Args:
+        phase:
+            A Phase instance.
+        default_limits:
+            The (lower, upper) limits to be returned if no
+            respective limit is found inside the Gibbs function
+            of the Phase.
+
+    Returns:
+        A list containing the [lower, upper] temperature limits.
+    """
+    limits = list(default_limits)
+    expr = phase.symbolic.g
+    lambdified = phase.g # lambdify(T, expr, 'numpy')
+    delta_t = 0.1
+    upper = []
+    lower = []
+    # traversing the SymPy expression tree, 
+    # getting all the Piecewise condition limits
+    for arg in sympy.preorder_traversal(expr):
+        if isinstance(arg, sympy.core.relational.StrictLessThan) or isinstance(arg, sympy.core.relational.LessThan):
+            if arg.lhs == T:
+                upper.append(float(arg.rhs))
+        elif isinstance(arg, sympy.core.relational.StrictGreaterThan) or isinstance(arg, sympy.core.relational.GreaterThan):
+            if arg.lhs == T:
+                lower.append(float(arg.rhs))
+    # checking whether the limits are "final"
+    # i.e. whether the function evaluates to a constant 
+    # value outside the limits (i.e., has a zero derivative)
+    derivative = numdifftools.Derivative(lambdified, n = 1)
+    if lower:
+        temp_limit = min(lower)
+        if derivative(temp_limit - delta_t) == 0:
+            limits[0] = temp_limit
+    if upper:
+        temp_limit = max(upper)
+        if derivative(temp_limit + delta_t) == 0:
+            limits[1] = temp_limit
+    return limits
+
+
 def transition_temperatures(phase0, phase1, t0 = 298.15):
     """Finds all possible phase transitions above t0.
 
@@ -427,78 +474,6 @@ def transition_temperatures(phase0, phase1, t0 = 298.15):
         A single string with the name of the most stable phase (above t0)
         if there's no transition temperature.
     """
-    def find_upper_limits_deprecated(phase0, phase1):
-        '''works only for a limited number of cases'''
-        improbable_t = 1e6
-        limits = []
-        # if the gibbs functions are piecewise, 
-        # trying to determine the lowest common T limit
-        for phase in [phase0, phase1]:
-            # here's a bug - the following doesn't work 
-            # for all functions containing Piecewise
-            # e.g. it won't work for 2*Piecewise(...),
-            # the type of which will be Mul
-            if type(phase.symbolic.g) == Piecewise:
-                conds = [expr_cond[1] for expr_cond in phase.symbolic.g.args]
-                current_limits = []
-                for cond in conds:
-                    try:
-                        current_limits.append(cond.rhs)
-                    except:
-                        pass
-                limits.append(current_limits)
-            else:
-                limits.append([improbable_t])
-        upper_limit = min([max(x) for x in limits])
-        limits = [float(x) for x in (t0, upper_limit)]
-        return limits
-
-    def find_phase_limits(phase, default_limits=(298.15, 1e6)):
-        """Finds the lower and upper limits of the Gibbs function.
-
-        Outside the returned limits, the Gibbs functions are expected
-        to be constant (nonsensical).
-
-        Args:
-            phase:
-                A Phase instance.
-            default_limits:
-                The (lower, upper) limits to be returned if no
-                respective limit is found inside the Gibbs function
-                of the Phase.
-
-        Returns:
-            A list containing the [lower, upper] temperature limits.
-        """
-        limits = list(default_limits)
-        expr = phase.symbolic.g
-        lambdified = phase.g # lambdify(T, expr, 'numpy')
-        delta_t = 0.1
-        upper = []
-        lower = []
-        # traversing the SymPy expression tree, 
-        # getting all the Piecewise condition limits
-        for arg in sympy.preorder_traversal(expr):
-            if isinstance(arg, sympy.core.relational.StrictLessThan) or isinstance(arg, sympy.core.relational.LessThan):
-                if arg.lhs == T:
-                    upper.append(float(arg.rhs))
-            elif isinstance(arg, sympy.core.relational.StrictGreaterThan) or isinstance(arg, sympy.core.relational.GreaterThan):
-                if arg.lhs == T:
-                    lower.append(float(arg.rhs))
-        # checking whether the limits are "final"
-        # i.e. whether the function evaluates to a constant 
-        # value outside the limits (i.e., has a zero derivative)
-        derivative = numdifftools.Derivative(lambdified, n = 1)
-        if lower:
-            temp_limit = min(lower)
-            if derivative(temp_limit - delta_t) == 0:
-                limits[0] = temp_limit
-        if upper:
-            temp_limit = max(upper)
-            if derivative(temp_limit + delta_t) == 0:
-                limits[1] = temp_limit
-        return limits
-
     improbable_t = 1e6
     individual_limits = [find_phase_limits(phase, (t0, improbable_t)) for phase in [phase0, phase1]]
     # finding the intersection of the temperature ranges of both phases
@@ -515,11 +490,9 @@ def transition_temperatures(phase0, phase1, t0 = 298.15):
         try:
             for i in range(len(limits) - 1):
                 res = scipy.optimize.minimize_scalar(fun_squared, bounds=(limits[i], limits[i+1]), method='bounded')
-                #print(res)
                 if res.success and res.fun < 1e-3 and res.x > limits[i] + 0.1 and res.x < limits[i+1] - 0.1:
                     limits.append(res.x)
-        except:# Exception as e:
-            #print(e)
+        except:
             break
         limits.sort()
     
@@ -531,8 +504,6 @@ def transition_temperatures(phase0, phase1, t0 = 298.15):
     else:
         transitions = []
         for t in limits[1:-1]:
-            # turns out scipy.misc is deprecated, hence numdifftools
-            #diff = scipy.misc.derivative(fun, t)
             diff = numdifftools.Derivative(fun, n=1)(t)
             if diff > 0:
                 transitions.append({'from': phase0.name, 'to': phase1.name, 'T': t})
@@ -579,7 +550,7 @@ def standard_transitions(phases, t0 = 298.15):
     stable_phases = [{'t' : t0, 'name' : names[np.argmin(gibbses_t0)]}]
             
     if len(phases) > 1 and all_trans:
-        for i in range(100): #idiotic check, think about changing this
+        for i in range(100): # idiotic check, think about changing this
             this_temperature, this_name = stable_phases[-1].values()
             possible_trans = [x for x in all_trans if x['from'] == this_name and x['T'] > this_temperature]
             if possible_trans:
@@ -694,8 +665,10 @@ class Compound:
             else:
                 # if we're given a name of the existing stable phase, 
                 # and not a Phase instance, then we're just aliasing that phase
-                # achtung! no checks (e.g., whether the phase exists)!
-                self.stable = self.phases[stable]
+                try:
+                    self.stable = self.phases[stable]
+                except:
+                    raise ValueError(f'Cannot use "{stable}" as a stable phase (perhaps there\'s no such phase).')
         self.transitions = transitions
         
     def __getitem__(self, key):
@@ -801,7 +774,6 @@ class Compound:
         else:
             # to compute it only once
             transition_thermodynamics = self.transition_thermodynamics
-            #descriptions = [f'{x["name"]} -> {y["name"]}' for x, y in zip(self.transitions[:-1], self.transitions[1:])]
             descriptions = [f'{x["from"]} -> {x["to"]}' for x in transition_thermodynamics]
             max_description_len = max([len(x) for x in descriptions])
             col_sep = '\t'
