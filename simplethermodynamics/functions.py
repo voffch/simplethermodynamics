@@ -5,7 +5,7 @@ various thermodynamic functions.
 
 import sympy
 import numpy as np
-import scipy.special
+from scipy import special
 import random
 from .core import R
 
@@ -16,6 +16,8 @@ symbolic_T = sympy.Symbol('T')
 #===========#
 # The following functions are used for approximating
 # whole thermodynamic functions or their pieces
+
+# Einstein and Debye functions
 
 def cv_einstein(alpha, theta, T = symbolic_T):
     """Heat capacity; Einstein function; J/mol/K
@@ -143,6 +145,7 @@ cp_einstein = cv_einstein
 h_einstein = u_einstein
 cp_debye = cv_debye
 
+# Gurvich-Glushko functions
 
 def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = symbolic_T):
     """Φ(T); Gurvich textbook and database; J/mol/K
@@ -201,33 +204,115 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, h298, T = symbolic_T):
     phi = phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T)
     return -T*phi + dhf298 - h298
 
+# NIST (Webbook) functions
 
-def coeff_to_float(coeff):
-    return float(coeff.replace('×10', 'e'))
+def cp_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
+    """Heat capacity; NIST Webbook; J/mol/K
+
+    Shomate equation as defined in NIST Webbook ( see, e.g.,
+    https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Type=JANAFL&Table=on ).
     
-def shomate_function(t, coeff_dict, what):
-    abc = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] #from string.ascii_uppercase
-    coeffs = [coeff_to_float(coeff_dict[letter]) for letter in abc]
-    A, B, C, D, E, F, G, H = coeffs
-    t /= 1000
-    if what == 'cp':
-        return A + B*t + C*t**2 + D*t**3 + E/(t**2)
-    elif what == 'h':
-        return A*t + B*t**2/2 + C*t**3/3 + D*t**4/4 - E/t + F - H
-    elif what == 's':
-        return A*np.log(t) + B*t + C*t**2/2 + D*t**3/3 - E/(2*t**2) + G
+    A + B*t + C*t**2 + D*t**3 + E/(t**2),
+    where t = T / 1000
+
+    Args:
+        A, B, C, D, E: coefficients (see the equation above)
+        F, G, H: coefficients that are not used here, but are listed in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    t = T / 1000
+    return A + B*t + C*t**2 + D*t**3 + E/(t**2)
+
+def dh298_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
+    """Enthalpy increments; NIST Webbook; J/mol
+
+    Shomate equation as defined in NIST Webbook ( see, e.g.,
+    https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Type=JANAFL&Table=on ).
+    
+    H(298.15) - H(0) = 
+         = (A*t + B*t**2/2 + C*t**3/3 + D*t**4/4 - E/t + F - H) kJ/mol,
+    where t = T / 1000
+
+    Args:
+        A, B, C, D, E, F, H: coefficients (see the equation above)
+        G: coefficient that is not used here, but is listed here in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Enthalpy increment value(s) in J/mol if T is a number or a numpy array.
+    """
+    t = T / 1000
+    return (A*t + B*t**2/2 + C*t**3/3 + D*t**4/4 - E/t + F - H)*1000
+
+def s_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
+    """Entropy; NIST Webbook; J/mol/K
+
+    Shomate equation as defined in NIST Webbook ( see, e.g.,
+    https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Type=JANAFL&Table=on ).
+
+    This is the absolute entropy, and not the entropy increments.
+    
+    A*log(t) + B*t + C*t**2/2 + D*t**3/3 - E/(2*t**2) + G,
+    where t = T / 1000
+
+    Args:
+        A, B, C, D, E, G: coefficients (see the equation above)
+        F, H: coefficients that are not used here, but are listed in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Entropy value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
     else:
-        return None
+        log = np.log
+    t = T / 1000
+    return A*log(t) + B*t + C*t**2/2 + D*t**3/3 - E/(2*t**2) + G
+
+def g_nist(A, B, C, D, E, F, G, H, dhf298, T = symbolic_T):
+    """Gibbs function; NIST Webbook; J/mol
+
+    Derived from the Shomate equation as defined in NIST Webbook ( see, e.g.,
+    https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Type=JANAFL&Table=on ).
+
+    Uses Standard Element Reference as a reference state.
+    In addition to the coefficients in the Shomate equation table,
+    requires the enthalpy of formation value (in J/mol).
     
-def shomate_cp(*args):
-    return shomate_function(*args, what='cp')
+    dhf298 - ((1/12)*D*t**4 - (1/6)*C*t**3 - (1/2)*B*t**2 + 
+        + (-A*log(t) + A - G)*t - (1/2)*E/t + F - H)*1000,
+    where t = T / 1000
 
-def shomate_h(*args):
-    return shomate_function(*args, what='h')
+    Args:
+        A, B, C, D, E, F, G, H: coefficients (see the equation above)
+        dhf298: standard enthalpy of formation at 298.15 K / J/mol
+        T: temperature / K (if numeric value required)
 
-def shomate_s(*args):
-    return shomate_function(*args, what='s')
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Gibbs function value(s) in J/mol if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    t = T / 1000
+    return dhf298 - ((1/12)*D*t**4 - (1/6)*C*t**3 - (1/2)*B*t**2 + (-A*log(t) + A - G)*t - (1/2)*E/t + F - H)*1000
 
+# Maier-Kelley-like functions
 
 def cp_robie(A1, A2, A3, A4, A5, T = symbolic_T):
     """Heat capacity; Robie, Hemingway; J/mol/K
@@ -287,29 +372,312 @@ def cp_barin(A, B, C, D, D_subst = False, T = symbolic_T):
     return cp
 
 def dh298_mks(cp298, b, c, T = symbolic_T):
-    """Enthalpy increments; Maier-Kelley-Shomate
+    """Enthalpy increments; Maier-Kelley-Shomate; J/mol/K
     
     Maier-Kelley (polynomial) function modified with Shomate method [1]
     for defining the entalpy increments, H(T) - H(298.15), via the 
-    heat capacity value at 298.15 K.
+    heat capacity value at 298.15 K. The original Maier-Kelley expression is:
+        a*T + b*T**2 + c*T**(-1) + d,
+    where a can be expressed in terms of the heat capacity at 298.15 K:
+        a = cp298 - 2*298.15*T + c/298.15**2,
+    and d can be eliminated using the obvious condition that 
+        H(298.15) - H(298.15) == 0,
+    so
+        d = -298.15*a - 298.15**2*b - c/298.15
 
     References:
         1. Shomate CH. A Method for Evaluating and Correlating Thermodynamic 
         Data. The Journal of Physical Chemistry. 1954;58(4):368-72. 
         doi:10.1021/j150514a018
+
+    Args:
+        cp298: isobaric heat capacity at 298.15 K
+        b, c: coefficients (see the equation above)
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
     """
     a = cp298 - 2*298.15*T + c/298.15**2
     d = -298.15*a - 298.15**2*b - c/298.15
     return a*T + b*T**2 + c*T**(-1) + d
 
-#TODO Nasa7
-#TODO Nasa9
+# NASA polynomial functions
+
+def cp_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+    """Heat capacity; NASA 7 Polynomials; J/mol/K
+    
+    These polynomials, initially developed at NASA, are described in [1].
+
+    Cp / R = a1 + a2*T + a3*T**2 + a4*T**3 + a5*T**4
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a5: coefficients (see the equation above)
+        a6, a7: coefficients that are not used here, but are listed in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    return R * (a1 + a2*T + a3*T**2 + a4*T**3 + a5*T**4)
+
+def h_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+    """Enthalpy; NASA 7 Polynomials; J/mol
+    
+    These polynomials, initially developed at NASA, are described in [1].
+    This enthalpy is a sum of the standard enthalpy of formation at 298.15 K
+    and the heat capacity integral between 298.15 K and T.
+
+    H / R*T = a1 + (a2/2)*T + (a3/3)*T**2 + (a4/4)*T**3 + (a5/5)*T**4 + a6/T
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a6: coefficients (see the equation above)
+        a7: coefficient that is not used here, but is listed here in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Enthalpy value(s) if T is a number or a numpy array.
+    """
+    return R * T * (a1 + (a2/2)*T + (a3/3)*T**2 + (a4/4)*T**3 + (a5/5)*T**4 + a6/T)
+
+def s_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+    """Entropy; NASA 7 Polynomials; J/mol/K
+    
+    These polynomials, initially developed at NASA, are described in [1].
+    This is the absolute entropy.
+
+    S / R = a1*log(T) + a2*T + (a3/2)*T**2 + (a4/3)*T**3 + (a5/4)*T**4 + a7
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a5, a7: coefficients (see the equation above)
+        a6: coefficient that is not used here, but is listed here in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Entropy value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    return R * (a1*log(T) + a2*T + (a3/2)*T**2 + (a4/3)*T**3 + (a5/4)*T**4 + a7)
+
+def g_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+    """Gibbs energy; NASA 7 Polynomials; J/mol
+    
+    These polynomials, initially developed at NASA, are described in [1].
+
+    G / R*T = a1*(1 - log(T)) - (a2/2)*T - (a3/6)*T**2 - (a4/12)*T**3 - 
+        - (a5/20)*T**4 + a6/T - a7
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a7: coefficients (see the equation above)
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Gibbs energy value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    return R * T * (a1*(1 - log(T)) - (a2/2)*T - (a3/6)*T**2 - (a4/12)*T**3 - (a5/20)*T**4 + a6/T - a7)
+
+def cp_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+    """Heat capacity; NASA 9 Polynomials; J/mol/K
+    
+    This is an extended version of NASA 7 polynomials.
+    These polynomials, initially developed at NASA, are described in [1].
+
+    Cp / R = a1*T**(-2) + a2*T**(-1) + a3 + a4*T + a5*T**2 + a6*T**3 + a7*T**4
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a7: coefficients (see the equation above)
+        a8, a9: coefficients that are not used here, but are listed in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    return R * (a1*T**(-2) + a2*T**(-1) + a3 + a4*T + a5*T**2 + a6*T**3 + a7*T**4)
+
+def h_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+    """Enthalpy; NASA 9 Polynomials; J/mol
+    
+    This is an extended version of NASA 7 polynomials.
+    These polynomials, initially developed at NASA, are described in [1].
+    This enthalpy is a sum of the standard enthalpy of formation at 298.15 K
+    and the heat capacity integral between 298.15 K and T.
+
+    H / R*T = -a1*T**(-2) + a2*T**(-1)*log(T) + a3 + (a4/2)*T + (a5/3)*T**2 + 
+        + (a6/4)*T**3 + (a7/5)*T**4 + a8/T
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a8: coefficients (see the equation above)
+        a9: coefficient that is not used here, but is listed here in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Enthalpy value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    return R * T * (-a1*T**(-2) + a2*T**(-1)*log(T) + a3 + (a4/2)*T + (a5/3)*T**2 + (a6/4)*T**3 + (a7/5)*T**4 + a8/T)
+
+def s_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+    """Entropy; NASA 7 Polynomials; J/mol/K
+    
+    This is an extended version of NASA 7 polynomials.
+    These polynomials, initially developed at NASA, are described in [1].
+    This is the absolute entropy.
+
+    S / R = -a1*T**-2/2 - a2*T**-1 + a3*log(T) + a4*T + (a5/2)*T**2 + 
+        + (a6/3)*T**3 + (a7/4)*T**4 + a9
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a7, a9: coefficients (see the equation above)
+        a8: coefficient that is not used here, but is listed here in this
+            specific order for compatibility with the other functions
+            derived from the NIST Webbook's Shomate equations
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Entropy value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    return R * (-a1*T**-2/2 - a2*T**-1 + a3*log(T) + a4*T + (a5/2)*T**2 + (a6/3)*T**3 + (a7/4)*T**4 + a9)
+
+def g_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+    """Gibbs energy; NASA 7 Polynomials; J/mol
+    
+    This is an extended version of NASA 7 polynomials.
+    These polynomials, initially developed at NASA, are described in [1].
+
+    G / R*T = -(a1/2)*T**(-2) + 2*a2*(1-log(T))/T + a3*(1-log(T)) - 
+        - (a4/2)*T - (a5/6)*T**2 - (a6/12)*T**3 - (a7/20)*T**4 + a8/T - a9
+
+    References:
+        1. Burcat A., Ruscic B. Third Millennium Ideal Gas and Condensed Phase
+        Thermochemical Database for Combustion with Updates from Active 
+        Thermochemical Tables. 2005. Argonne National Laboratory publication
+        ANL-05/20 TAE 960.
+        https://publications.anl.gov/anlpubs/2005/07/53802.pdf
+
+    Args:
+        a1 - a9: coefficients (see the equation above)
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Gibbs energy value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    return R * T * (-(a1/2)*T**(-2) + 2*a2*(1-log(T))/T + a3*(1-log(T)) - (a4/2)*T - (a5/6)*T**2 - (a6/12)*T**3 - (a7/20)*T**4 + a8/T - a9)
+    
+# Miscellaneous functions
 
 def poly_from_dict(d, T = symbolic_T):
-    return sum([v*T**k for k, v in d.items()])
+    """Polynomial function from {power : coeff} dict
+
+    Args:
+        d: dict with powers as keys and coefficients
+            as values
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        The value(s) if T is a number or a numpy array.
+    """
+    return sum([coeff*T**power for power, coeff in d.items()])
     
 def func_from_dict(d, T = symbolic_T):
-    return sum([v*sympy.sympify(k) for k, v in d.items()])
+    """Arbitrary function from {term : coeff} dict
+
+    Args:
+        d: dict with terms (e.g., simpyfiable strings) as keys 
+            and coefficients as values
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        The value(s) if T is a number or a numpy array.
+    """
+    return sum([coeff*sympy.sympify(term) for term, coeff in d.items()])
 
 
 #===========#
@@ -363,5 +731,5 @@ def h_gaussian(a, b, c, T = symbolic_T):
     if type(T) == sympy.Symbol:
         erf = sympy.erf
     else:
-        erf = scipy.special.erf
+        erf = special.erf
     return -(1/2)*a*(2*np.pi)**(0.5)*c*erf((1/2)*2**(0.5)*(-T + b)/c)
