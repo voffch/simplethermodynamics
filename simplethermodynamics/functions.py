@@ -1,6 +1,6 @@
 """
 This file defines some commonly used functions for describing (approximating)
-various thermodynamic functions.
+various thermodynamic functions and associated anomalies.
 """
 
 import sympy
@@ -100,7 +100,7 @@ def cp_einstein_beta(alpha, theta, beta, T = symbolic_T):
     References:
         1. Martin CA. Simple treatment of anharmonic effects on the specific 
         heat. Journal of Physics: Condensed Matter. 1991;3(32):5967. 
-        doi:10.1088/0953-8984/3/32/005
+        https://doi.org/10.1088/0953-8984/3/32/005
 
     Args:
         alpha: "number of oscillators per formula unit" / dimensionless
@@ -352,7 +352,7 @@ def cp_barin(A, B, C, D, D_subst = False, T = symbolic_T):
     References:
         Barin, I., Knacke, O., Kubaschewski, O. (1977). Thermochemical 
         properties of inorganic substances. Springer, Berlin, Heidelberg. 
-        doi: 10.1007/978-3-662-02293-1
+        https://doi.org/10.1007/978-3-662-02293-1
     
     Args:
         A, B, C, D: coefficients (see the equation above)
@@ -388,7 +388,7 @@ def dh298_mks(cp298, b, c, T = symbolic_T):
     References:
         1. Shomate CH. A Method for Evaluating and Correlating Thermodynamic 
         Data. The Journal of Physical Chemistry. 1954;58(4):368-72. 
-        doi:10.1021/j150514a018
+        https://doi.org/10.1021/j150514a018
 
     Args:
         cp298: isobaric heat capacity at 298.15 K
@@ -687,7 +687,8 @@ def func_from_dict(d, T = symbolic_T):
 # in various thermodynamic functions
 
 #TODO all from cpfit manual p15
-#TODO magnetic contributions
+
+# Miscellaneous anomaly functions
 
 def cp_gaussian(a, b, c, T = symbolic_T):
     """Gaussian function; J/mol/K
@@ -733,3 +734,147 @@ def h_gaussian(a, b, c, T = symbolic_T):
     else:
         erf = special.erf
     return -(1/2)*a*(2*np.pi)**(0.5)*c*erf((1/2)*2**(0.5)*(-T + b)/c)
+
+# SGTE descriptions of magnetic contributions (aka lambda-anomalies)
+
+def g_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+    """Magnetic Gibbs energy; SGTE; J/mol
+
+    The magnetic contribution to the thermodynamic properties 
+    is described in [1].
+
+    References:
+        1. Dinsdale AT. SGTE data for pure elements. 
+        Calphad. 1991;15(4):317-425. 
+        https://doi.org/10.1016/0364-5916(91)90030-N
+
+    Args:
+        Tc: the critical temperature 
+            (the Curie temperature Tc for ferromagnetic materials 
+            or the Neel temperature TN for antiferromagnetic materials)
+        B0: the average magnetic moment per atom
+        p: can be thought of as the fraction of the magnetic enthalpy 
+            absorbed above the critical temperature; depends on the structure
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Magnetic Gibbs energy value if T is a number.
+    """
+    tau = T / Tc
+    D = 518/1125 + 11692/15975*(p**(-1) - 1)
+    g_mag_low = 1 - (79*tau**(-1)/140/p + 474/497*(p**(-1) - 1)*(tau**3/6 + tau**9/135 + tau**15/600)) / D
+    g_mag_high = -(tau**(-5)/10 + tau**(-15)/315 + tau**(-25)/1500) / D
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+        return R * T * log(B0 + 1) * sympy.Piecewise((g_mag_low, T <= Tc), (g_mag_high, T > Tc))
+    else:
+        log = np.log
+        return R * T * log(B0 + 1) * (g_mag_low if T <= Tc else g_mag_high)
+    
+def s_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+    """Magnetic entropy; SGTE; J/mol/K
+
+    The magnetic contribution to the thermodynamic properties 
+    is described in [1].
+
+    References:
+        1. Dinsdale AT. SGTE data for pure elements. 
+        Calphad. 1991;15(4):317-425. 
+        https://doi.org/10.1016/0364-5916(91)90030-N
+
+    Args:
+        Tc: the critical temperature 
+            (the Curie temperature Tc for ferromagnetic materials 
+            or the Neel temperature TN for antiferromagnetic materials)
+        B0: the average magnetic moment per atom
+        p: can be thought of as the fraction of the magnetic enthalpy 
+            absorbed above the critical temperature; depends on the structure
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Magnetic entropy value if T is a number.
+    """
+    tau = T / Tc
+    D = 518/1125 + 11692/15975*(p**(-1) - 1)
+    s_mag_low = 1 - (474/497*(p**(-1) - 1)*((2/3)*tau**3 + (2/27)*tau**9 + (2/75)*tau**15)) / D
+    s_mag_high = ((2/5)*tau**(-5) + (2/45)*tau**(-15) + (2/125)*tau**(-25)) / D
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+        return - R * log(B0 + 1) * sympy.Piecewise((s_mag_low, T <= Tc), (s_mag_high, T > Tc))
+    else:
+        log = np.log
+        return - R * log(B0 + 1) * (s_mag_low if T <= Tc else s_mag_high)
+
+def h_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+    """Magnetic enthalpy; SGTE; J/mol
+
+    The magnetic contribution to the thermodynamic properties 
+    is described in [1].
+
+    References:
+        1. Dinsdale AT. SGTE data for pure elements. 
+        Calphad. 1991;15(4):317-425. 
+        https://doi.org/10.1016/0364-5916(91)90030-N
+
+    Args:
+        Tc: the critical temperature 
+            (the Curie temperature Tc for ferromagnetic materials 
+            or the Neel temperature TN for antiferromagnetic materials)
+        B0: the average magnetic moment per atom
+        p: can be thought of as the fraction of the magnetic enthalpy 
+            absorbed above the critical temperature; depends on the structure
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Magnetic enthalpy value if T is a number.
+    """
+    tau = T / Tc
+    D = 518/1125 + 11692/15975*(p**(-1) - 1)
+    h_mag_low = (-79*tau**(-1)/140/p + 474/497*(p**(-1) - 1)*(tau**3/2 + tau**9/15 + tau**15/40)) / D
+    h_mag_high = -(tau**(-5)/2 + tau**(-15)/21 + tau**(-25)/60) / D
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+        return R * T * log(B0 + 1) * sympy.Piecewise((h_mag_low, T <= Tc), (h_mag_high, T > Tc))
+    else:
+        log = np.log
+        return R * T * log(B0 + 1) * (h_mag_low if T <= Tc else h_mag_high)
+
+def cp_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+    """Magnetic heat capacity; SGTE; J/mol/K
+
+    The magnetic contribution to the thermodynamic properties 
+    is described in [1].
+
+    References:
+        1. Dinsdale AT. SGTE data for pure elements. 
+        Calphad. 1991;15(4):317-425. 
+        https://doi.org/10.1016/0364-5916(91)90030-N
+
+    Args:
+        Tc: the critical temperature 
+            (the Curie temperature Tc for ferromagnetic materials 
+            or the Neel temperature TN for antiferromagnetic materials)
+        B0: the average magnetic moment per atom
+        p: can be thought of as the fraction of the magnetic enthalpy 
+            absorbed above the critical temperature; depends on the structure
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Magnetic heat capacity value if T is a number.
+    """
+    tau = T / Tc
+    D = 518/1125 + 11692/15975*(p**(-1) - 1)
+    c_mag_low = ((474/497) * (1/p - 1) * (2*tau**3 + (2/3)*tau**9 + (2/5)*tau**15)) / D
+    c_mag_high = (2*tau**(-5) + (2/3)*tau**(-15) + (2/5)*tau**(-25)) / D
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+        return R * log(B0 + 1) * sympy.Piecewise((c_mag_low, T <= Tc), (c_mag_high, T > Tc))
+    else:
+        log = np.log
+        return R * log(B0 + 1) * (c_mag_low if T <= Tc else c_mag_high)
+
+#?TODO: Inden's models from The role of magnetism in the calculation of phase diagrams Physica 103B (1981) 82-100
