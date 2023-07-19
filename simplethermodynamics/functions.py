@@ -686,12 +686,109 @@ def func_from_dict(d, T = symbolic_T):
 # The following functions are used for describing the anomalies
 # in various thermodynamic functions
 
-#TODO all from cpfit manual p15
+# The extra terms such as those implemented in the CpFit software.
+# Voskov, A.L. New Possibilities of the CpFit Program for Approximating 
+# Heat Contents and Heat Capacities. Russ. J. Phys. Chem. 96, 1895–1900 (2022).
+# https://doi.org/10.1134/S0036024422090291
+# See also https://td.chem.msu.ru/en/developments/cpfit/
+
+def cp_lambda(b1, b2, b3, Ttr, T = symbolic_T):
+    """Heat capacity lambda transition term; CpFit; J/mol/K
+    
+    The default (in CpFit) term for describing the lambda transitions.
+
+    Cp / R = b1 * exp(b2*(b3*ΔT - |ΔT|)),
+    where ΔT = T - Ttr
+
+    Args:
+        b1, b2, b3: coefficients (see the equation above)
+        Ttr: transition temperature / K
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    dT = T - Ttr
+    if type(T) == sympy.Symbol:
+        exp = sympy.exp
+        absdT = sympy.Piecewise((T - Ttr, T >= Ttr), (Ttr - T, True))
+    else:
+        exp = np.exp
+        absdT = np.abs(dT)
+    return R * b1 * exp(b2*(b3*dT - absdT))
+
+def cp_leftexp(b1, b2, Tmax, T = symbolic_T):
+    """Heat capacity left exponent; CpFit; J/mol/K
+    
+    Exponential function for describing the left side of the peak.
+
+    Cp / R = b1 * exp(b2*(T - Tmax)),
+
+    Args:
+        b1, b2: coefficients (see the equation above)
+        Tmax: peak (position) temperature / K
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        exp = sympy.exp
+    else:
+        exp = np.exp
+    return R * b1 * exp(b2*(T - Tmax))
+
+def cp_rightexp(b1, b2, Tmin, T = symbolic_T):
+    """Heat capacity right exponent; CpFit; J/mol/K
+    
+    Exponential function for describing the right side of the peak.
+
+    Cp / R = b1 * exp(-b2*(T - Tmin)),
+
+    Args:
+        b1, b2: coefficients (see the equation above)
+        Tmin: peak (position) temperature / K
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        exp = sympy.exp
+    else:
+        exp = np.exp
+    return R * b1 * exp(-b2*(T - Tmin))
+
+def cp_skewed(b1, b2, b3, b4, T = symbolic_T):
+    """Heat capacity asymmetric Gauss term; CpFit; J/mol/K
+    
+    A (possibly) asymmetric Gauss bell curve.
+
+    Cp / R = b1 * exp(-x**2) / (1 + exp(-b2*x)),
+    where x = (T - b3) / b4
+
+    Args:
+        b1 - b4: coefficients (see the equation above)
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        exp = sympy.exp
+    else:
+        exp = np.exp
+    x = (T - b3) / b4
+    return R * b1 * exp(-x**2) / (1 + exp(-b2*x))
 
 # Miscellaneous anomaly functions
 
 def cp_gaussian(a, b, c, T = symbolic_T):
-    """Gaussian function; J/mol/K
+    """Heat capacity Gauss term; J/mol/K
     
     Standard Gaussian function which can be used to describe 
     a peak on the heat capacity curve.
@@ -713,7 +810,7 @@ def cp_gaussian(a, b, c, T = symbolic_T):
     return a*exp(-(T - b)**2 / 2 / c**2)
 
 def h_gaussian(a, b, c, T = symbolic_T):
-    """Gauss enthalpy; J/mol/K
+    """Enthalpy Gauss term; J/mol/K
 
     Just a symbolic integral of Gaussian peak function.
     
