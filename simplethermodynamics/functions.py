@@ -875,7 +875,9 @@ def cp_skewed(b1, b2, b3, b4, T = _symbolic_T):
     where x = (T - b3) / b4
 
     Args:
-        b1 - b4: coefficients (see the equation above)
+        b1 - b4: coefficients (see the equation above),
+            responsible for the peak height, asymmetry,
+            peak position and peak width, respectively
         T: temperature / K (if numeric value required)
 
     Returns:
@@ -891,7 +893,7 @@ def cp_skewed(b1, b2, b3, b4, T = _symbolic_T):
 
 # Miscellaneous anomaly functions
 
-def cp_gaussian(a, b, c, T = _symbolic_T):
+def cp_gauss(a, b, c, T = _symbolic_T):
     """Heat capacity Gauss term; J/mol/K
     
     Standard Gaussian function which can be used to describe 
@@ -913,7 +915,7 @@ def cp_gaussian(a, b, c, T = _symbolic_T):
         exp = np.exp
     return a*exp(-(T - b)**2 / 2 / c**2)
 
-def h_gaussian(a, b, c, T = _symbolic_T):
+def h_gauss(a, b, c, T = _symbolic_T):
     """Enthalpy Gauss term; J/mol
 
     Just a symbolic integral of Gaussian peak function.
