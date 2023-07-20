@@ -174,10 +174,49 @@ def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
     else:
         log = np.log
     x = T*1e-4
-    phi = A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3
-    return phi
+    return A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3
         
-def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, dh298, T = _symbolic_T):
+def cp_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
+    """Heat capacity; Gurvich textbook and database; J/mol/K
+
+    Heat capacity function derived from Φ(T) as defined in [1].
+
+    A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3,
+    where x = T*1e-4
+
+    References:
+        1. Gurvich LV. Thermodynamic properties of individual substances. 
+        4th ed. New York: Hemisphere Publishing Corp.; 1989.
+
+    Args:
+        A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see the equation above)
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type (or not given explicitly).
+        Heat capacity values in J/mol/K if T is a number or a numpy array.
+    """
+    x = T*1e-4
+    return Aln + 2*A_2*x**(-2) + 2*A1*x + 6*A2*x**2 + 12*A3*x**3
+
+def s_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    x = T*1e-4
+    return A0 + Aln*(log(x) + 1) - A_2*x**(-2) + 2*A1*x + 3*A2*x**2 + 4*A3*x**3
+
+def dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
+    x = T*1e-4
+    return T * (Aln - 2*A_2*x**(-2) - A_1*x**(-1) + A1*x + 2*A2*x**2 + 3*A3*x**3)
+
+def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
+    x = T*1e-4
+    return ( dhf298 + dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T) 
+                    - dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, 298.15) )
+
+def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
     """Gibbs function; Gurvich textbook and database; J/mol
 
     Computes Gibbs function via the "reduced" Gibbs energy function Φ(T) 
@@ -203,8 +242,8 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, dh298, T = _symbolic_T):
         SymPy expression if T is of Symbol type (or not given explicitly).
         Gibbs energy value(s) in J/mol if T is a number or a numpy array.
     """
-    phi = phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T)
-    return -T*phi + dhf298 - dh298
+    return ( h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T)
+                 - T*s_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T) )
 
 # NIST (Webbook) functions
 
