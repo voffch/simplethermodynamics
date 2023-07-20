@@ -938,6 +938,21 @@ def h_gaussian(a, b, c, T = _symbolic_T):
 
 # SGTE descriptions of magnetic contributions (aka lambda-anomalies)
 
+def _g_magnetic_sgte_symbolic(Tc, B0, p):
+    T = _symbolic_T
+    log = sympy.log
+    tau = T / Tc
+    D = 518/1125 + 11692/15975*(p**(-1) - 1)
+    g_mag_low = 1 - (79*tau**(-1)/140/p + 474/497*(p**(-1) - 1)*(tau**3/6 + tau**9/135 + tau**15/600)) / D
+    g_mag_high = -(tau**(-5)/10 + tau**(-15)/315 + tau**(-25)/1500) / D
+    return sympy.simplify(R * T * log(B0 + 1) * sympy.Piecewise((g_mag_low, T <= Tc), (g_mag_high, T > Tc)))
+
+_g_magnetic_sgte_numeric = sympy.lambdify(
+    sympy.symbols('Tc, B0, p, T'), 
+    _g_magnetic_sgte_symbolic(*sympy.symbols('Tc, B0, p')),
+    'numpy'
+)
+
 def g_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic Gibbs energy; SGTE; J/mol
 
@@ -960,19 +975,28 @@ def g_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
 
     Returns:
         SymPy expression if T is of Symbol type or is not given explicitly.
-        Value if T is a number.
+        Value(s) if T is a number or a numpy array.
     """
+    if type(T) == sympy.Symbol:
+        return _g_magnetic_sgte_symbolic(Tc, B0, p)
+    else:
+        return _g_magnetic_sgte_numeric(Tc, B0, p, T)
+
+def _s_magnetic_sgte_symbolic(Tc, B0, p):
+    T = _symbolic_T
+    log = sympy.log
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
-    g_mag_low = 1 - (79*tau**(-1)/140/p + 474/497*(p**(-1) - 1)*(tau**3/6 + tau**9/135 + tau**15/600)) / D
-    g_mag_high = -(tau**(-5)/10 + tau**(-15)/315 + tau**(-25)/1500) / D
-    if type(T) == sympy.Symbol:
-        log = sympy.log
-        return R * T * log(B0 + 1) * sympy.Piecewise((g_mag_low, T <= Tc), (g_mag_high, T > Tc))
-    else:
-        log = np.log
-        return R * T * log(B0 + 1) * (g_mag_low if T <= Tc else g_mag_high)
-    
+    s_mag_low = 1 - (474/497*(p**(-1) - 1)*((2/3)*tau**3 + (2/27)*tau**9 + (2/75)*tau**15)) / D
+    s_mag_high = ((2/5)*tau**(-5) + (2/45)*tau**(-15) + (2/125)*tau**(-25)) / D
+    return sympy.simplify(- R * log(B0 + 1) * sympy.Piecewise((s_mag_low, T <= Tc), (s_mag_high, T > Tc)))
+
+_s_magnetic_sgte_numeric = sympy.lambdify(
+    sympy.symbols('Tc, B0, p, T'), 
+    _s_magnetic_sgte_symbolic(*sympy.symbols('Tc, B0, p')),
+    'numpy'
+)
+
 def s_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic entropy; SGTE; J/mol/K
 
@@ -995,18 +1019,27 @@ def s_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
 
     Returns:
         SymPy expression if T is of Symbol type or is not given explicitly.
-        Value if T is a number.
+        Value(s) if T is a number or a numpy array.
     """
+    if type(T) == sympy.Symbol:
+        return _s_magnetic_sgte_symbolic(Tc, B0, p)
+    else:
+        return _s_magnetic_sgte_numeric(Tc, B0, p, T)
+
+def _h_magnetic_sgte_symbolic(Tc, B0, p):
+    T = _symbolic_T
+    log = sympy.log
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
-    s_mag_low = 1 - (474/497*(p**(-1) - 1)*((2/3)*tau**3 + (2/27)*tau**9 + (2/75)*tau**15)) / D
-    s_mag_high = ((2/5)*tau**(-5) + (2/45)*tau**(-15) + (2/125)*tau**(-25)) / D
-    if type(T) == sympy.Symbol:
-        log = sympy.log
-        return - R * log(B0 + 1) * sympy.Piecewise((s_mag_low, T <= Tc), (s_mag_high, T > Tc))
-    else:
-        log = np.log
-        return - R * log(B0 + 1) * (s_mag_low if T <= Tc else s_mag_high)
+    h_mag_low = (-79*tau**(-1)/140/p + 474/497*(p**(-1) - 1)*(tau**3/2 + tau**9/15 + tau**15/40)) / D
+    h_mag_high = -(tau**(-5)/2 + tau**(-15)/21 + tau**(-25)/60) / D
+    return sympy.simplify(R * T * log(B0 + 1) * sympy.Piecewise((h_mag_low, T <= Tc), (h_mag_high, T > Tc)))
+
+_h_magnetic_sgte_numeric = sympy.lambdify(
+    sympy.symbols('Tc, B0, p, T'), 
+    _h_magnetic_sgte_symbolic(*sympy.symbols('Tc, B0, p')),
+    'numpy'
+)
 
 def h_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic enthalpy; SGTE; J/mol
@@ -1030,18 +1063,27 @@ def h_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
 
     Returns:
         SymPy expression if T is of Symbol type or is not given explicitly.
-        Value if T is a number.
+        Value(s) if T is a number or a numpy array.
     """
+    if type(T) == sympy.Symbol:
+        return _h_magnetic_sgte_symbolic(Tc, B0, p)
+    else:
+        return _h_magnetic_sgte_numeric(Tc, B0, p, T)
+
+def _cp_magnetic_sgte_symbolic(Tc, B0, p):
+    T = _symbolic_T
+    log = sympy.log
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
-    h_mag_low = (-79*tau**(-1)/140/p + 474/497*(p**(-1) - 1)*(tau**3/2 + tau**9/15 + tau**15/40)) / D
-    h_mag_high = -(tau**(-5)/2 + tau**(-15)/21 + tau**(-25)/60) / D
-    if type(T) == sympy.Symbol:
-        log = sympy.log
-        return R * T * log(B0 + 1) * sympy.Piecewise((h_mag_low, T <= Tc), (h_mag_high, T > Tc))
-    else:
-        log = np.log
-        return R * T * log(B0 + 1) * (h_mag_low if T <= Tc else h_mag_high)
+    c_mag_low = ((474/497) * (1/p - 1) * (2*tau**3 + (2/3)*tau**9 + (2/5)*tau**15)) / D
+    c_mag_high = (2*tau**(-5) + (2/3)*tau**(-15) + (2/5)*tau**(-25)) / D
+    return R * log(B0 + 1) * sympy.Piecewise((c_mag_low, T <= Tc), (c_mag_high, T > Tc))
+
+_cp_magnetic_sgte_numeric = sympy.lambdify(
+    sympy.symbols('Tc, B0, p, T'), 
+    _cp_magnetic_sgte_symbolic(*sympy.symbols('Tc, B0, p')),
+    'numpy'
+)
 
 def cp_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic heat capacity; SGTE; J/mol/K
@@ -1065,17 +1107,11 @@ def cp_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
 
     Returns:
         SymPy expression if T is of Symbol type or is not given explicitly.
-        Value if T is a number.
+        Value(s) if T is a number or a numpy array.
     """
-    tau = T / Tc
-    D = 518/1125 + 11692/15975*(p**(-1) - 1)
-    c_mag_low = ((474/497) * (1/p - 1) * (2*tau**3 + (2/3)*tau**9 + (2/5)*tau**15)) / D
-    c_mag_high = (2*tau**(-5) + (2/3)*tau**(-15) + (2/5)*tau**(-25)) / D
     if type(T) == sympy.Symbol:
-        log = sympy.log
-        return R * log(B0 + 1) * sympy.Piecewise((c_mag_low, T <= Tc), (c_mag_high, T > Tc))
+        return _cp_magnetic_sgte_symbolic(Tc, B0, p)
     else:
-        log = np.log
-        return R * log(B0 + 1) * (c_mag_low if T <= Tc else c_mag_high)
+        return _cp_magnetic_sgte_numeric(Tc, B0, p, T)
 
 #?TODO: Inden's models from The role of magnetism in the calculation of phase diagrams Physica 103B (1981) 82-100
