@@ -659,6 +659,7 @@ class Compound:
                 states = sorted(set(self.phases[tr['name']].state for tr in transitions), key=key_func)
                 stable_state = ','.join(states)
                 self.stable = Phase('stable', stable_state, g=simplify(Piecewise(*expr_cond)))
+                #TODO: init other functions, in addition to g, if available (pre-computed) in the self.phases
         else:
             if type(stable) == Phase:
                 self.stable = stable
