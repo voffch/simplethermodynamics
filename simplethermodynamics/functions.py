@@ -6,10 +6,9 @@ various thermodynamic functions and associated anomalies.
 import sympy
 import numpy as np
 from scipy import special
-import random
 from .core import R
 
-symbolic_T = sympy.Symbol('T')
+_symbolic_T = sympy.Symbol('T')
 
 #===========#
 # FUNCTIONS #
@@ -19,7 +18,7 @@ symbolic_T = sympy.Symbol('T')
 
 # Einstein and Debye functions
 
-def cv_einstein(alpha, theta, T = symbolic_T):
+def cv_einstein(alpha, theta, T = _symbolic_T):
     """Heat capacity; Einstein function; J/mol/K
 
     3 * alpha * R * x**2 * exp(x) / (exp(x) - 1)**2,
@@ -41,7 +40,7 @@ def cv_einstein(alpha, theta, T = symbolic_T):
     x = theta / T
     return 3 * alpha * R * x**2 * exp(x) / (exp(x) - 1)**2
 
-def s_einstein(alpha, theta, T = symbolic_T):
+def s_einstein(alpha, theta, T = _symbolic_T):
     """Entropy; Einstein function; J/mol/K
 
     3 * alpha * R * ((x / (exp(x) - 1)) - log(1 - exp(-x))),
@@ -65,7 +64,7 @@ def s_einstein(alpha, theta, T = symbolic_T):
     x = theta / T
     return 3 * alpha * R * ((x / (exp(x) - 1)) - log(1 - exp(-x)))
 
-def u_einstein(alpha, theta, T = symbolic_T):
+def u_einstein(alpha, theta, T = _symbolic_T):
     """Internal energy; Einstein function; J/mol
 
     3 * alpha * R * theta / (exp(x) - 1),
@@ -87,11 +86,12 @@ def u_einstein(alpha, theta, T = symbolic_T):
     x = theta / T
     return 3 * alpha * R * theta / (exp(x) - 1)
 
-def cp_einstein_beta(alpha, theta, beta, T = symbolic_T):
+def cv_einstein_mod(alpha, theta, beta, T = _symbolic_T):
     """Heat capacity; Modified Einstein function; J/mol/K
 
     The Einstein function, modified in accordance with [1],
-    which includes the anharmonic effect correction term 'beta'.
+    which includes the anharmonic effect correction term 'beta'
+    (it was denoted differently in [1]).
 
     (1 / (1 - beta*T)) * cp_einstein(alpha, theta, T)
 
@@ -115,19 +115,20 @@ def cp_einstein_beta(alpha, theta, beta, T = symbolic_T):
     """
     return (1 / (1 - beta*T)) * cp_einstein(alpha, theta, T)
 
-_cv_debye_symbolic = R * sympy.sympify('9 * (T / theta)**3 * integrate((x**4)*exp(-x) / (1 - exp(-x))**2, (x, 0, theta/T))')
-_cv_debye_numeric = sympy.lambdify(sympy.symbols('theta, T'), _cv_debye_symbolic)
+_cv_debye_symbolic = R * sympy.sympify('alpha * 9 * (T / theta)**3 * integrate((x**4)*exp(-x) / (1 - exp(-x))**2, (x, 0, theta/T))')
+# the following will rely on scipy.integrate.quad, which doesn't support numpy arrays...
+_cv_debye_numeric = sympy.lambdify(sympy.symbols('alpha, theta, T'), _cv_debye_symbolic)
+# ...so we'll make a ufunc from it.
+_cv_debye_numeric = np.frompyfunc(_cv_debye_numeric, 3, 1)
 
-def cv_debye(theta, T = symbolic_T):
+def cv_debye(alpha, theta, T = _symbolic_T):
     """Heat capacity; Debye function; J/mol/K
 
     The Debye function. Contains an integral which cannot be evaluated
     symbolically. This function cannot be integrated symbolically.
 
-    Relies on the lambdified numeric implementation, which uses
-    scipy.integrate.quad, which doesn't accept numpy arrays as arguments.
-
     Args:
+        alpha: dimensionless multiplier
         theta: Debye temperature / K
         T: temperature / K (if numeric value required)
 
@@ -136,18 +137,19 @@ def cv_debye(theta, T = symbolic_T):
         Heat capacity value if T is a number.
     """
     if type(T) == sympy.Symbol:
-        return _cv_debye_symbolic.subs('theta', theta)
+        return _cv_debye_symbolic.subs({'alpha': alpha, 'theta': theta})
     else:
-        return _cv_debye_numeric(theta, T)
+        return _cv_debye_numeric(alpha, theta, T)
 
 # These are thermodynamically incorrect, but otherwise very useful aliases).
 cp_einstein = cv_einstein
+cp_einstein_mod = cv_einstein_mod
 h_einstein = u_einstein
 cp_debye = cv_debye
 
 # Gurvich-Glushko functions
 
-def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = symbolic_T):
+def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
     """Φ(T); Gurvich textbook and database; J/mol/K
 
     The "reduced" Gibbs energy function Φ(T) as defined in [1].
@@ -175,7 +177,7 @@ def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = symbolic_T):
     phi = A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3
     return phi
         
-def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, h298, T = symbolic_T):
+def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, dh298, T = _symbolic_T):
     """Gibbs function; Gurvich textbook and database; J/mol
 
     Computes Gibbs function via the "reduced" Gibbs energy function Φ(T) 
@@ -183,7 +185,7 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, h298, T = symbolic_T):
 
     Φ(T) = A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3,
     where x = T*1e-4;
-    g = -T*Φ(T) + dhf298 - h298
+    g = -T*Φ(T) + dhf298 - dh298
 
     See also phi_gurvich.
 
@@ -194,7 +196,7 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, h298, T = symbolic_T):
     Args:
         A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see the equation above)
         dhf298: standard enthalpy of formation at 298.15 K / J/mol
-        h298: enthalpy increment H(298.15) - H(0) / J/mol
+        dh298: enthalpy increment H(298.15) - H(0) / J/mol
         T: temperature / K (if numeric value required)
 
     Returns:
@@ -202,11 +204,11 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, h298, T = symbolic_T):
         Gibbs energy value(s) in J/mol if T is a number or a numpy array.
     """
     phi = phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T)
-    return -T*phi + dhf298 - h298
+    return -T*phi + dhf298 - dh298
 
 # NIST (Webbook) functions
 
-def cp_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
+def cp_shomate(A, B, C, D, E, F, G, H, T = _symbolic_T):
     """Heat capacity; NIST Webbook; J/mol/K
 
     Shomate equation as defined in NIST Webbook ( see, e.g.,
@@ -229,13 +231,13 @@ def cp_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
     t = T / 1000
     return A + B*t + C*t**2 + D*t**3 + E/(t**2)
 
-def dh298_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
+def dh298_shomate(A, B, C, D, E, F, G, H, T = _symbolic_T):
     """Enthalpy increments; NIST Webbook; J/mol
 
     Shomate equation as defined in NIST Webbook ( see, e.g.,
     https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Type=JANAFL&Table=on ).
     
-    H(298.15) - H(0) = 
+    H(T) - H(298.15) = 
          = (A*t + B*t**2/2 + C*t**3/3 + D*t**4/4 - E/t + F - H) kJ/mol,
     where t = T / 1000
 
@@ -253,7 +255,7 @@ def dh298_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
     t = T / 1000
     return (A*t + B*t**2/2 + C*t**3/3 + D*t**4/4 - E/t + F - H)*1000
 
-def s_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
+def s_shomate(A, B, C, D, E, F, G, H, T = _symbolic_T):
     """Entropy; NIST Webbook; J/mol/K
 
     Shomate equation as defined in NIST Webbook ( see, e.g.,
@@ -282,7 +284,7 @@ def s_nist(A, B, C, D, E, F, G, H, T = symbolic_T):
     t = T / 1000
     return A*log(t) + B*t + C*t**2/2 + D*t**3/3 - E/(2*t**2) + G
 
-def g_nist(A, B, C, D, E, F, G, H, dhf298, T = symbolic_T):
+def g_shomate(A, B, C, D, E, F, G, H, dhf298, T = _symbolic_T):
     """Gibbs function; NIST Webbook; J/mol
 
     Derived from the Shomate equation as defined in NIST Webbook ( see, e.g.,
@@ -292,8 +294,8 @@ def g_nist(A, B, C, D, E, F, G, H, dhf298, T = symbolic_T):
     In addition to the coefficients in the Shomate equation table,
     requires the enthalpy of formation value (in J/mol).
     
-    dhf298 - ((1/12)*D*t**4 - (1/6)*C*t**3 - (1/2)*B*t**2 + 
-        + (-A*log(t) + A - G)*t - (1/2)*E/t + F - H)*1000,
+    dhf298 + (-(250/3)*D*t**4-(500/3)*C*t**3-500*B*t**2+(-1000*A*log(t)+
+        +1000*A-1000*G)*t+1000*F-1000*H-500*E/t),
     where t = T / 1000
 
     Args:
@@ -310,17 +312,17 @@ def g_nist(A, B, C, D, E, F, G, H, dhf298, T = symbolic_T):
     else:
         log = np.log
     t = T / 1000
-    return dhf298 - ((1/12)*D*t**4 - (1/6)*C*t**3 - (1/2)*B*t**2 + (-A*log(t) + A - G)*t - (1/2)*E/t + F - H)*1000
+    return dhf298 + (-(250/3)*D*t**4-(500/3)*C*t**3-500*B*t**2+(-1000*A*log(t)+1000*A-1000*G)*t+1000*F-1000*H-500*E/t)
 
 # Maier-Kelley-like functions
 
-def cp_robie(A1, A2, A3, A4, A5, T = symbolic_T):
+def cp_robie(A1, A2, A3, A4, A5, T = _symbolic_T):
     """Heat capacity; Robie, Hemingway; J/mol/K
 
     A1 + A2*T + A3*T**(-2) + A4*T**(-0.5) + A5*T**2
 
     This heat capacity function used in Robie, Hemingway textbook [1]
-    is a kind of a Maier-Kelley polynomial.
+    is a modified Maier-Kelley polynomial.
     
     References:
         1. Robie RA, Hemingway BS. Thermodynamic properties of minerals 
@@ -338,15 +340,15 @@ def cp_robie(A1, A2, A3, A4, A5, T = symbolic_T):
     """
     return A1 + A2*T + A3*T**(-2) + A4*T**(-0.5) + A5*T**2
 
-def cp_barin(A, B, C, D, D_subst = False, T = symbolic_T):
+def cp_barin(A, B, C, D, T = _symbolic_T, D_subst = False):
     """Heat capacity; Barin; J/mol/K
 
     Small polynomials defined in Eq. (29) of [1].
 
-    A + B*1e-3*T + C*1e5*T**(-2) + D**1e-6*T**2
+    (A + B*1e-3*T + C*1e5*T**(-2) + D*1e-6*T**2) / cal/mol/K
 
-    In some cases the last term in equation is substituted by 
-    D*10**8*T**(-3), which should be indicated at the bottom 
+    In some cases the last term in the equation is substituted by 
+    D*1e8*T**(-3), which should be indicated at the bottom 
     of the respective tablein the textbook.
 
     References:
@@ -356,9 +358,9 @@ def cp_barin(A, B, C, D, D_subst = False, T = symbolic_T):
     
     Args:
         A, B, C, D: coefficients (see the equation above)
+        T: temperature / K (if numeric value required)
         D_subst: if True, substitutes the term multiplied by D
             as explained above
-        T: temperature / K (if numeric value required)
 
     Returns:
         SymPy expression if T is of Symbol type (or not given explicitly).
@@ -368,10 +370,10 @@ def cp_barin(A, B, C, D, D_subst = False, T = symbolic_T):
     if D_subst:
         cp += D*1e8*T**(-3)
     else:
-        cp += D**1e-6*T**2
-    return cp
+        cp += D*1e-6*T**2
+    return 4.184 * cp
 
-def dh298_mks(cp298, b, c, T = symbolic_T):
+def dh298_mks(cp298, b, c, T = _symbolic_T):
     """Enthalpy increments; Maier-Kelley-Shomate; J/mol/K
     
     Maier-Kelley (polynomial) function modified with Shomate method [1]
@@ -379,7 +381,7 @@ def dh298_mks(cp298, b, c, T = symbolic_T):
     heat capacity value at 298.15 K. The original Maier-Kelley expression is:
         a*T + b*T**2 + c*T**(-1) + d,
     where a can be expressed in terms of the heat capacity at 298.15 K:
-        a = cp298 - 2*298.15*T + c/298.15**2,
+        a = cp298 - 2*298.15*b + c/298.15**2,
     and d can be eliminated using the obvious condition that 
         H(298.15) - H(298.15) == 0,
     so
@@ -399,13 +401,13 @@ def dh298_mks(cp298, b, c, T = symbolic_T):
         SymPy expression if T is of Symbol type (or not given explicitly).
         Heat capacity value(s) if T is a number or a numpy array.
     """
-    a = cp298 - 2*298.15*T + c/298.15**2
+    a = cp298 - 2*298.15*b + c/298.15**2
     d = -298.15*a - 298.15**2*b - c/298.15
     return a*T + b*T**2 + c*T**(-1) + d
 
 # NASA polynomial functions
 
-def cp_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+def cp_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
     """Heat capacity; NASA 7 Polynomials; J/mol/K
     
     These polynomials, initially developed at NASA, are described in [1].
@@ -432,7 +434,7 @@ def cp_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
     """
     return R * (a1 + a2*T + a3*T**2 + a4*T**3 + a5*T**4)
 
-def h_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+def h_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
     """Enthalpy; NASA 7 Polynomials; J/mol
     
     These polynomials, initially developed at NASA, are described in [1].
@@ -461,7 +463,7 @@ def h_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
     """
     return R * T * (a1 + (a2/2)*T + (a3/3)*T**2 + (a4/4)*T**3 + (a5/5)*T**4 + a6/T)
 
-def s_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+def s_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
     """Entropy; NASA 7 Polynomials; J/mol/K
     
     These polynomials, initially developed at NASA, are described in [1].
@@ -493,7 +495,7 @@ def s_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
         log = np.log
     return R * (a1*log(T) + a2*T + (a3/2)*T**2 + (a4/3)*T**3 + (a5/4)*T**4 + a7)
 
-def g_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
+def g_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
     """Gibbs energy; NASA 7 Polynomials; J/mol
     
     These polynomials, initially developed at NASA, are described in [1].
@@ -522,7 +524,7 @@ def g_nasa7(a1, a2, a3, a4, a5, a6, a7, T = symbolic_T):
         log = np.log
     return R * T * (a1*(1 - log(T)) - (a2/2)*T - (a3/6)*T**2 - (a4/12)*T**3 - (a5/20)*T**4 + a6/T - a7)
 
-def cp_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+def cp_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
     """Heat capacity; NASA 9 Polynomials; J/mol/K
     
     This is an extended version of NASA 7 polynomials.
@@ -550,7 +552,7 @@ def cp_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
     """
     return R * (a1*T**(-2) + a2*T**(-1) + a3 + a4*T + a5*T**2 + a6*T**3 + a7*T**4)
 
-def h_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+def h_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
     """Enthalpy; NASA 9 Polynomials; J/mol
     
     This is an extended version of NASA 7 polynomials.
@@ -585,7 +587,7 @@ def h_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
         log = np.log
     return R * T * (-a1*T**(-2) + a2*T**(-1)*log(T) + a3 + (a4/2)*T + (a5/3)*T**2 + (a6/4)*T**3 + (a7/5)*T**4 + a8/T)
 
-def s_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+def s_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
     """Entropy; NASA 7 Polynomials; J/mol/K
     
     This is an extended version of NASA 7 polynomials.
@@ -619,7 +621,7 @@ def s_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
         log = np.log
     return R * (-a1*T**-2/2 - a2*T**-1 + a3*log(T) + a4*T + (a5/2)*T**2 + (a6/3)*T**3 + (a7/4)*T**4 + a9)
 
-def g_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
+def g_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
     """Gibbs energy; NASA 7 Polynomials; J/mol
     
     This is an extended version of NASA 7 polynomials.
@@ -651,7 +653,7 @@ def g_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = symbolic_T):
     
 # Miscellaneous functions
 
-def poly_from_dict(d, T = symbolic_T):
+def poly_from_dict(d, T = _symbolic_T):
     """Polynomial function from {power : coeff} dict
 
     Args:
@@ -665,17 +667,15 @@ def poly_from_dict(d, T = symbolic_T):
     """
     return sum([coeff*T**power for power, coeff in d.items()])
     
-def func_from_dict(d, T = symbolic_T):
-    """Arbitrary function from {term : coeff} dict
+def expr_from_dict(d):
+    """Arbitrary sympy expression from {term : coeff} dict
 
     Args:
         d: dict with terms (e.g., simpyfiable strings) as keys 
             and coefficients as values
-        T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        The value(s) if T is a number or a numpy array.
+        SymPy expression.
     """
     return sum([coeff*sympy.sympify(term) for term, coeff in d.items()])
 
@@ -692,7 +692,7 @@ def func_from_dict(d, T = symbolic_T):
 # https://doi.org/10.1134/S0036024422090291
 # See also https://td.chem.msu.ru/en/developments/cpfit/
 
-def cp_lambda(b1, b2, b3, Ttr, T = symbolic_T):
+def cp_lambda(b1, b2, b3, Ttr, T = _symbolic_T):
     """Heat capacity lambda transition term; CpFit; J/mol/K
     
     The default (in CpFit) term for describing the lambda transitions.
@@ -718,7 +718,7 @@ def cp_lambda(b1, b2, b3, Ttr, T = symbolic_T):
         absdT = np.abs(dT)
     return R * b1 * exp(b2*(b3*dT - absdT))
 
-def cp_leftexp(b1, b2, Tmax, T = symbolic_T):
+def cp_leftexp(b1, b2, Tmax, T = _symbolic_T):
     """Heat capacity left exponent; CpFit; J/mol/K
     
     Exponential function for describing the left side of the peak.
@@ -740,7 +740,7 @@ def cp_leftexp(b1, b2, Tmax, T = symbolic_T):
         exp = np.exp
     return R * b1 * exp(b2*(T - Tmax))
 
-def cp_rightexp(b1, b2, Tmin, T = symbolic_T):
+def cp_rightexp(b1, b2, Tmin, T = _symbolic_T):
     """Heat capacity right exponent; CpFit; J/mol/K
     
     Exponential function for describing the right side of the peak.
@@ -762,7 +762,7 @@ def cp_rightexp(b1, b2, Tmin, T = symbolic_T):
         exp = np.exp
     return R * b1 * exp(-b2*(T - Tmin))
 
-def cp_skewed(b1, b2, b3, b4, T = symbolic_T):
+def cp_skewed(b1, b2, b3, b4, T = _symbolic_T):
     """Heat capacity asymmetric Gauss term; CpFit; J/mol/K
     
     A (possibly) asymmetric Gauss bell curve.
@@ -787,7 +787,7 @@ def cp_skewed(b1, b2, b3, b4, T = symbolic_T):
 
 # Miscellaneous anomaly functions
 
-def cp_gaussian(a, b, c, T = symbolic_T):
+def cp_gaussian(a, b, c, T = _symbolic_T):
     """Heat capacity Gauss term; J/mol/K
     
     Standard Gaussian function which can be used to describe 
@@ -809,7 +809,7 @@ def cp_gaussian(a, b, c, T = symbolic_T):
         exp = np.exp
     return a*exp(-(T - b)**2 / 2 / c**2)
 
-def h_gaussian(a, b, c, T = symbolic_T):
+def h_gaussian(a, b, c, T = _symbolic_T):
     """Enthalpy Gauss term; J/mol/K
 
     Just a symbolic integral of Gaussian peak function.
@@ -834,7 +834,7 @@ def h_gaussian(a, b, c, T = symbolic_T):
 
 # SGTE descriptions of magnetic contributions (aka lambda-anomalies)
 
-def g_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+def g_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic Gibbs energy; SGTE; J/mol
 
     The magnetic contribution to the thermodynamic properties 
@@ -869,7 +869,7 @@ def g_magnetic_sgte(Tc, B0, p, T = symbolic_T):
         log = np.log
         return R * T * log(B0 + 1) * (g_mag_low if T <= Tc else g_mag_high)
     
-def s_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+def s_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic entropy; SGTE; J/mol/K
 
     The magnetic contribution to the thermodynamic properties 
@@ -904,7 +904,7 @@ def s_magnetic_sgte(Tc, B0, p, T = symbolic_T):
         log = np.log
         return - R * log(B0 + 1) * (s_mag_low if T <= Tc else s_mag_high)
 
-def h_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+def h_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic enthalpy; SGTE; J/mol
 
     The magnetic contribution to the thermodynamic properties 
@@ -939,7 +939,7 @@ def h_magnetic_sgte(Tc, B0, p, T = symbolic_T):
         log = np.log
         return R * T * log(B0 + 1) * (h_mag_low if T <= Tc else h_mag_high)
 
-def cp_magnetic_sgte(Tc, B0, p, T = symbolic_T):
+def cp_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
     """Magnetic heat capacity; SGTE; J/mol/K
 
     The magnetic contribution to the thermodynamic properties 
