@@ -11,7 +11,7 @@ import itertools
 
 
 T = Symbol('T')
-R = 8.314462618
+R = 8.314462618 # CODATA 2018 value
 
 
 class Phase:
