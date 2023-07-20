@@ -30,8 +30,8 @@ def cv_einstein(alpha, theta, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -52,8 +52,8 @@ def s_einstein(alpha, theta, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Entropy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -76,8 +76,8 @@ def u_einstein(alpha, theta, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Internal energy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -110,8 +110,8 @@ def cv_einstein_mod(alpha, theta, beta, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     return (1 / (1 - beta*T)) * cp_einstein(alpha, theta, T)
 
@@ -133,8 +133,8 @@ def cv_debye(alpha, theta, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value if T is a number.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         return _cv_debye_symbolic.subs({'alpha': alpha, 'theta': theta})
@@ -152,7 +152,7 @@ cp_debye = cv_debye
 def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
     """Φ(T); Gurvich textbook and database; J/mol/K
 
-    The "reduced" Gibbs energy function Φ(T) as defined in [1].
+    The "reduced" Gibbs energy function Φ(T) defined in [1].
 
     A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3,
     where x = T*1e-4
@@ -166,8 +166,8 @@ def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Φ value(s) in J/mol/K if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
@@ -179,9 +179,9 @@ def phi_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
 def cp_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
     """Heat capacity; Gurvich textbook and database; J/mol/K
 
-    Heat capacity function derived from Φ(T) as defined in [1].
+    Heat capacity function derived from Φ(T) defined in [1].
 
-    A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3,
+    Aln + 2*A_2*x**(-2) + 2*A1*x + 6*A2*x**2 + 12*A3*x**3,
     where x = T*1e-4
 
     References:
@@ -189,17 +189,42 @@ def cp_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
         4th ed. New York: Hemisphere Publishing Corp.; 1989.
 
     Args:
-        A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see the equation above)
+        Aln, A_2, A1, A2, A3: coefficients (see also phi_gurvich)
+        A0, A_1: coefficients that are not used for the calculations here,
+            but remain among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity values in J/mol/K if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     x = T*1e-4
     return Aln + 2*A_2*x**(-2) + 2*A1*x + 6*A2*x**2 + 12*A3*x**3
 
 def s_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
+    """Entropy; Gurvich textbook and database; J/mol/K
+
+    Entropy function derived from Φ(T) defined in [1].
+
+    A0 + Aln*(log(x) + 1) - A_2*x**(-2) + 2*A1*x + 3*A2*x**2 + 4*A3*x**3,
+    where x = T*1e-4
+
+    References:
+        1. Gurvich LV. Thermodynamic properties of individual substances. 
+        4th ed. New York: Hemisphere Publishing Corp.; 1989.
+
+    Args:
+        A0, Aln, A_2, A1, A2, A3: coefficients (see also phi_gurvich)
+        A_1: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
+    """
     if type(T) == sympy.Symbol:
         log = sympy.log
     else:
@@ -208,42 +233,82 @@ def s_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
     return A0 + Aln*(log(x) + 1) - A_2*x**(-2) + 2*A1*x + 3*A2*x**2 + 4*A3*x**3
 
 def dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
-    x = T*1e-4
-    return T * (Aln - 2*A_2*x**(-2) - A_1*x**(-1) + A1*x + 2*A2*x**2 + 3*A3*x**3)
+    """Enthalpy increments; Gurvich textbook and database; J/mol
 
-def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
-    x = T*1e-4
-    return ( dhf298 + dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T) 
-                    - dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, 298.15) )
+    Enthalpy increments derived from Φ(T) defined in [1].
 
-def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
-    """Gibbs function; Gurvich textbook and database; J/mol
-
-    Computes Gibbs function via the "reduced" Gibbs energy function Φ(T) 
-    as defined in [1].
-
-    Φ(T) = A0 + Aln*log(x) + A_2*x**(-2) + A_1*x**(-1) + A1*x + A2*x**2 + A3*x**3,
-    where x = T*1e-4;
-    g = -T*Φ(T) + dhf298 - dh298
-
-    See also phi_gurvich.
+    H(T) - H(0) = 
+        = 1e4 * (Aln*x - 2*A_2*x**(-1) - A_1 + A1*x**2 + 2*A2*x**3 + 3*A3*x**4)
 
     References:
         1. Gurvich LV. Thermodynamic properties of individual substances. 
         4th ed. New York: Hemisphere Publishing Corp.; 1989.
 
     Args:
-        A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see the equation above)
-        dhf298: standard enthalpy of formation at 298.15 K / J/mol
-        dh298: enthalpy increment H(298.15) - H(0) / J/mol
+        Aln, A_2, A_1, A1, A2, A3: coefficients (see also phi_gurvich)
+        A0: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Gibbs energy value(s) in J/mol if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
-    return ( h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T)
-                 - T*s_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T) )
+    x = T*1e-4
+    return 1e4 * (Aln*x - 2*A_2*x**(-1) - A_1 + A1*x**2 + 2*A2*x**3 + 3*A3*x**4)
+
+def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
+    """Enthalpy; Gurvich textbook and database; J/mol
+
+    Enthalpy function derived from Φ(T) defined in [1].
+
+    H(T) = ΔfH(298.15) + (H(T) - H(0)) - (H(298.15) - H(0)),
+    where the last two terms in brackets are the enthalpy increments.
+
+    References:
+        1. Gurvich LV. Thermodynamic properties of individual substances. 
+        4th ed. New York: Hemisphere Publishing Corp.; 1989.
+
+    Args:
+        A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see also phi_gurvich)
+        dhf298: standard enthalpy of formation at 298.15 K / J/mol
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
+    """
+    dh0_T = dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T)
+    dh0_298 = dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, 298.15)
+    return dhf298 + dh0_T - dh0_298
+
+def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
+    """Gibbs function; Gurvich textbook and database; J/mol
+
+    Gibbs function derived from Φ(T) defined in [1].
+
+    References:
+        1. Gurvich LV. Thermodynamic properties of individual substances. 
+        4th ed. New York: Hemisphere Publishing Corp.; 1989.
+
+    Args:
+        A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see also phi_gurvich)
+        dhf298: standard enthalpy of formation at 298.15 K / J/mol
+        T: temperature / K (if numeric value required)
+
+    Returns:
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
+    """
+    if type(T) == sympy.Symbol:
+        log = sympy.log
+    else:
+        log = np.log
+    x = T*1e-4
+    dh0_298 = dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, 298.15)
+    poly = 1e4*(-A3*x**4 - A2*x**3 - A1*x**2 - Aln*log(x)*x - A0*x - A_1 - A_2/x)
+    return poly - dh0_298 + dhf298
 
 # NIST (Webbook) functions
 
@@ -258,14 +323,14 @@ def cp_shomate(A, B, C, D, E, F, G, H, T = _symbolic_T):
 
     Args:
         A, B, C, D, E: coefficients (see the equation above)
-        F, G, H: coefficients that are not used here, but are listed in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        F, G, H: coefficients that are not used for the calculations here,
+            but remain among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     t = T / 1000
     return A + B*t + C*t**2 + D*t**3 + E/(t**2)
@@ -282,14 +347,14 @@ def dh298_shomate(A, B, C, D, E, F, G, H, T = _symbolic_T):
 
     Args:
         A, B, C, D, E, F, H: coefficients (see the equation above)
-        G: coefficient that is not used here, but is listed here in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        G: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Enthalpy increment value(s) in J/mol if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     t = T / 1000
     return (A*t + B*t**2/2 + C*t**3/3 + D*t**4/4 - E/t + F - H)*1000
@@ -307,14 +372,14 @@ def s_shomate(A, B, C, D, E, F, G, H, T = _symbolic_T):
 
     Args:
         A, B, C, D, E, G: coefficients (see the equation above)
-        F, H: coefficients that are not used here, but are listed in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        F, H: coefficients that are not used for the calculations here,
+            but remain among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Entropy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
@@ -343,8 +408,8 @@ def g_shomate(A, B, C, D, E, F, G, H, dhf298, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Gibbs function value(s) in J/mol if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
@@ -374,8 +439,8 @@ def cp_robie(A1, A2, A3, A4, A5, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     return A1 + A2*T + A3*T**(-2) + A4*T**(-0.5) + A5*T**2
 
@@ -402,8 +467,8 @@ def cp_barin(A, B, C, D, T = _symbolic_T, D_subst = False):
             as explained above
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     cp = A + B*1e-3*T + C*1e5*T**(-2)
     if D_subst:
@@ -413,7 +478,7 @@ def cp_barin(A, B, C, D, T = _symbolic_T, D_subst = False):
     return 4.184 * cp
 
 def dh298_mks(cp298, b, c, T = _symbolic_T):
-    """Enthalpy increments; Maier-Kelley-Shomate; J/mol/K
+    """Enthalpy increments; Maier-Kelley-Shomate; J/mol
     
     Maier-Kelley (polynomial) function modified with Shomate method [1]
     for defining the entalpy increments, H(T) - H(298.15), via the 
@@ -437,8 +502,8 @@ def dh298_mks(cp298, b, c, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     a = cp298 - 2*298.15*b + c/298.15**2
     d = -298.15*a - 298.15**2*b - c/298.15
@@ -462,14 +527,14 @@ def cp_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
 
     Args:
         a1 - a5: coefficients (see the equation above)
-        a6, a7: coefficients that are not used here, but are listed in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        a6, a7: coefficients that are not used for the calculations here,
+            but remain among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     return R * (a1 + a2*T + a3*T**2 + a4*T**3 + a5*T**4)
 
@@ -491,16 +556,16 @@ def h_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
 
     Args:
         a1 - a6: coefficients (see the equation above)
-        a7: coefficient that is not used here, but is listed here in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        a7: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Enthalpy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
-    return R * T * (a1 + (a2/2)*T + (a3/3)*T**2 + (a4/4)*T**3 + (a5/5)*T**4 + a6/T)
+    return R * (a1*T + (a2/2)*T**2 + (a3/3)*T**3 + (a4/4)*T**4 + (a5/5)*T**5 + a6)
 
 def s_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
     """Entropy; NASA 7 Polynomials; J/mol/K
@@ -519,14 +584,14 @@ def s_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
 
     Args:
         a1 - a5, a7: coefficients (see the equation above)
-        a6: coefficient that is not used here, but is listed here in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        a6: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Entropy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
@@ -554,14 +619,14 @@ def g_nasa7(a1, a2, a3, a4, a5, a6, a7, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Gibbs energy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
     else:
         log = np.log
-    return R * T * (a1*(1 - log(T)) - (a2/2)*T - (a3/6)*T**2 - (a4/12)*T**3 - (a5/20)*T**4 + a6/T - a7)
+    return R * ((a1 - a7)*T - a1*T*log(T) - (a2/2)*T**2 - (a3/6)*T**3 - (a4/12)*T**4 - (a5/20)*T**5 + a6)
 
 def cp_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
     """Heat capacity; NASA 9 Polynomials; J/mol/K
@@ -580,14 +645,14 @@ def cp_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
 
     Args:
         a1 - a7: coefficients (see the equation above)
-        a8, a9: coefficients that are not used here, but are listed in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        a8, a9: coefficients that are not used for the calculations here,
+            but remain among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     return R * (a1*T**(-2) + a2*T**(-1) + a3 + a4*T + a5*T**2 + a6*T**3 + a7*T**4)
 
@@ -611,20 +676,20 @@ def h_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
 
     Args:
         a1 - a8: coefficients (see the equation above)
-        a9: coefficient that is not used here, but is listed here in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        a9: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Enthalpy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
     else:
         log = np.log
-    return R * T * (-a1*T**(-2) + a2*T**(-1)*log(T) + a3 + (a4/2)*T + (a5/3)*T**2 + (a6/4)*T**3 + (a7/5)*T**4 + a8/T)
+    return R * (-a1*T**(-1) + a2*log(T) + a3*T + (a4/2)*T**2 + (a5/3)*T**3 + (a6/4)*T**4 + (a7/5)*T**5 + a8)
 
 def s_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
     """Entropy; NASA 7 Polynomials; J/mol/K
@@ -645,14 +710,14 @@ def s_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
 
     Args:
         a1 - a7, a9: coefficients (see the equation above)
-        a8: coefficient that is not used here, but is listed here in this
-            specific order for compatibility with the other functions
-            derived from the NIST Webbook's Shomate equations
+        a8: coefficient that is not used for the calculations here,
+            but remains among the args to preserve the order
+            in which the coefficients are listed
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Entropy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
@@ -681,14 +746,14 @@ def g_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Gibbs energy value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         log = sympy.log
     else:
         log = np.log
-    return R * T * (-(a1/2)*T**(-2) + 2*a2*(1-log(T))/T + a3*(1-log(T)) - (a4/2)*T - (a5/6)*T**2 - (a6/12)*T**3 - (a7/20)*T**4 + a8/T - a9)
+    return R * (-(a1/2)*T**(-1) + 2*a2*(1-log(T)) + (a3 - a9)*T - a3*T*log(T) - (a4/2)*T**2 - (a5/6)*T**3 - (a6/12)*T**4 - (a7/20)*T**5 + a8 )
     
 # Miscellaneous functions
 
@@ -701,8 +766,8 @@ def poly_from_dict(d, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        The value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     return sum([coeff*T**power for power, coeff in d.items()])
     
@@ -745,8 +810,8 @@ def cp_lambda(b1, b2, b3, Ttr, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     dT = T - Ttr
     if type(T) == sympy.Symbol:
@@ -770,8 +835,8 @@ def cp_leftexp(b1, b2, Tmax, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -792,8 +857,8 @@ def cp_rightexp(b1, b2, Tmin, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -814,8 +879,8 @@ def cp_skewed(b1, b2, b3, b4, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -839,8 +904,8 @@ def cp_gaussian(a, b, c, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Heat capacity value(s) if T is a number or a numpy array.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value(s) if T is a number or a numpy array.
     """
     if type(T) == sympy.Symbol:
         exp = sympy.exp
@@ -849,7 +914,7 @@ def cp_gaussian(a, b, c, T = _symbolic_T):
     return a*exp(-(T - b)**2 / 2 / c**2)
 
 def h_gaussian(a, b, c, T = _symbolic_T):
-    """Enthalpy Gauss term; J/mol/K
+    """Enthalpy Gauss term; J/mol
 
     Just a symbolic integral of Gaussian peak function.
     
@@ -862,8 +927,8 @@ def h_gaussian(a, b, c, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Enthalpy value if T is a number.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value if T is a number.
     """
     if type(T) == sympy.Symbol:
         erf = sympy.erf
@@ -894,8 +959,8 @@ def g_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Magnetic Gibbs energy value if T is a number.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value if T is a number.
     """
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
@@ -929,8 +994,8 @@ def s_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Magnetic entropy value if T is a number.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value if T is a number.
     """
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
@@ -964,8 +1029,8 @@ def h_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Magnetic enthalpy value if T is a number.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value if T is a number.
     """
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
@@ -999,8 +1064,8 @@ def cp_magnetic_sgte(Tc, B0, p, T = _symbolic_T):
         T: temperature / K (if numeric value required)
 
     Returns:
-        SymPy expression if T is of Symbol type (or not given explicitly).
-        Magnetic heat capacity value if T is a number.
+        SymPy expression if T is of Symbol type or is not given explicitly.
+        Value if T is a number.
     """
     tau = T / Tc
     D = 518/1125 + 11692/15975*(p**(-1) - 1)
