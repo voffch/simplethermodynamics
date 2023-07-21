@@ -29,9 +29,9 @@ dependencies = [
   "matplotlib"
 ]
 [project.urls]
-"Homepage" = "https://example.com"
-"Bug Reports" = "https://example.com"
-"Source" = "https://example.com"
+"Homepage" = "https://github.com/voffch/simplethermodynamics"
+"Bug Reports" = "https://github.com/voffch/simplethermodynamics/issues"
+"Source" = "https://github.com/voffch/simplethermodynamics"
 [tool.setuptools]
 # Data files that need to be installed.
 # package-data = {"sample" = ["*.dat"]}
