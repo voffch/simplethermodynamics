@@ -38,13 +38,13 @@ I think that it is too soon (if ever) for this project to be added to PyPI. Howe
 pip install "simplethermodynamics @ git+https://github.com/voffch/simplethermodynamics@master"
 ```
 
-This behemoth of a command, if prefixed with `!`, can be used in [Google Colab](https://colab.research.google.com), so you can go and try this package there with no need for the locally installed Python.
+This behemoth of a command, if prefixed with `!`, can be used in [Google Colab](https://colab.research.google.com), so you can go and try this package there with no need for the locally installed Python. The examples should be using it as well.
 
 The examples are not installed along with the package and should be downloaded separately.
 
 ## Uninstall
 
-...and so when you finally understand that this is totally unusable , just run
+...and so when you finally understand that this is totally unusable, just run
 
 ```
 pip uninstall simplethermodynamics
