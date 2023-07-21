@@ -258,13 +258,17 @@ def dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T = _symbolic_T):
     x = T*1e-4
     return 1e4 * (Aln*x - 2*A_2*x**(-1) - A_1 + A1*x**2 + 2*A2*x**3 + 3*A3*x**4)
 
-def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
+def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, dh0_298, T = _symbolic_T):
     """Enthalpy; Gurvich textbook and database; J/mol
 
     Enthalpy function derived from Φ(T) defined in [1].
 
     H(T) = ΔfH(298.15) + (H(T) - H(0)) - (H(298.15) - H(0)),
     where the last two terms in brackets are the enthalpy increments.
+
+    The value of (H(298.15) - H(0)) will NOT be calculated correctly with
+    the dh0_gurvich function if the coefficients are for the higher-temperature
+    Φ(T) function which doesn't evaluate correctly at room temperature.
 
     References:
         1. Gurvich LV. Thermodynamic properties of individual substances. 
@@ -273,6 +277,7 @@ def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
     Args:
         A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see also phi_gurvich)
         dhf298: standard enthalpy of formation at 298.15 K / J/mol
+        dh0_298: enthalpy increment (H(298.15) - H(0)) / J/mol
         T: temperature / K (if numeric value required)
 
     Returns:
@@ -280,10 +285,9 @@ def h_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
         Value(s) if T is a number or a numpy array.
     """
     dh0_T = dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, T)
-    dh0_298 = dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, 298.15)
     return dhf298 + dh0_T - dh0_298
 
-def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
+def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, dh0_298, T = _symbolic_T):
     """Gibbs function; Gurvich textbook and database; J/mol
 
     Gibbs function derived from Φ(T) defined in [1].
@@ -295,6 +299,7 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
     Args:
         A0, Aln, A_2, A_1, A1, A2, A3: coefficients (see also phi_gurvich)
         dhf298: standard enthalpy of formation at 298.15 K / J/mol
+        dh0_298: enthalpy increment (H(298.15) - H(0)) / J/mol
         T: temperature / K (if numeric value required)
 
     Returns:
@@ -306,7 +311,6 @@ def g_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, dhf298, T = _symbolic_T):
     else:
         log = np.log
     x = T*1e-4
-    dh0_298 = dh0_gurvich(A0, Aln, A_2, A_1, A1, A2, A3, 298.15)
     poly = 1e4*(-A3*x**4 - A2*x**3 - A1*x**2 - Aln*log(x)*x - A0*x - A_1 - A_2/x)
     return poly - dh0_298 + dhf298
 
