@@ -139,7 +139,7 @@ def cv_debye(alpha, theta, T = _symbolic_T):
     if type(T) == sympy.Symbol:
         return _cv_debye_symbolic.subs({'alpha': alpha, 'theta': theta})
     else:
-        return _cv_debye_numeric(alpha, theta, T)
+        return _cv_debye_numeric(alpha, theta, T).astype(float)
 
 # These are thermodynamically incorrect, but otherwise very useful aliases).
 cp_einstein = cv_einstein
