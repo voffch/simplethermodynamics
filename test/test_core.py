@@ -58,6 +58,3 @@ class TestPhase(unittest.TestCase):
 
     def test_compound_water(self):
         pass
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)

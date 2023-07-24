@@ -7,6 +7,12 @@ import simplethermodynamics.functions as tf
 
 T = sympy.Symbol('T')
 
+# General guidelines for making the function test cases:
+# - returning symbolic representation when no temperature given
+# - evaluating symbolic function at one floating-point T
+# - evaluating numeric function at one floating-point T
+# - evaluating numeric function for ndarray of T
+
 class TestEinsteinDebye(unittest.TestCase):
     def test_c_einstein(self):
         """Einstein heat capacity"""
@@ -104,6 +110,8 @@ class TestGurvich(unittest.TestCase):
         data = np.array(self.table['f'][self.t_slice], dtype=float)
         calc = tf.phi_gurvich(*self.coeffs, self.t_ndar)
         self.assertTrue(np.allclose(data, calc, atol=2e-03))
+        calc_num = tf.phi_gurvich(*self.coeffs, float(self.t_ndar[0]))
+        self.assertAlmostEqual(calc_num, data[0], places = 2)
         calc_sym = tf.phi_gurvich(*self.coeffs).evalf(subs={T: self.t_ndar[0]})
         self.assertAlmostEqual(calc_sym, data[0], places = 2)
 
@@ -112,6 +120,8 @@ class TestGurvich(unittest.TestCase):
         data = np.array(self.table['cp'][self.t_slice], dtype=float)
         calc = tf.cp_gurvich(*self.coeffs, self.t_ndar)
         self.assertTrue(np.allclose(data, calc, atol=5e-04))
+        calc_num = tf.cp_gurvich(*self.coeffs, float(self.t_ndar[0]))
+        self.assertAlmostEqual(calc_num, data[0], places = 2)
         calc_sym = tf.cp_gurvich(*self.coeffs).evalf(subs={T: self.t_ndar[0]})
         self.assertAlmostEqual(calc_sym, data[0], places = 2)
 
@@ -120,6 +130,8 @@ class TestGurvich(unittest.TestCase):
         data = np.array(self.table['s'][self.t_slice], dtype=float)
         calc = tf.s_gurvich(*self.coeffs, self.t_ndar)
         self.assertTrue(np.allclose(data, calc, atol=5e-04))
+        calc_num = tf.s_gurvich(*self.coeffs, float(self.t_ndar[0]))
+        self.assertAlmostEqual(calc_num, data[0], places = 2)
         calc_sym = tf.s_gurvich(*self.coeffs).evalf(subs={T: self.t_ndar[0]})
         self.assertAlmostEqual(calc_sym, data[0], places = 2)
 
@@ -128,6 +140,8 @@ class TestGurvich(unittest.TestCase):
         data = np.array(self.table['ht-h0'][self.t_slice], dtype=float)
         calc = tf.dh0_gurvich(*self.coeffs, self.t_ndar) / 1000 # in kJ/mol
         self.assertTrue(np.allclose(data, calc, atol=1e-03))
+        calc_num = tf.dh0_gurvich(*self.coeffs, float(self.t_ndar[0])) / 1000
+        self.assertAlmostEqual(calc_num, data[0], places = 2)
         calc_sym = tf.dh0_gurvich(*self.coeffs).evalf(subs={T: self.t_ndar[0]}) / 1000
         self.assertAlmostEqual(calc_sym, data[0], places = 2)
 
@@ -140,15 +154,19 @@ class TestGurvich(unittest.TestCase):
                             self.h298, 
                             self.t_ndar) / 1000 # in kJ/mol
         self.assertTrue(np.allclose(data, calc, atol=5e-04))
+        calc_num = tf.h_gurvich(*self.coeffs, 
+                                self.dhf298, 
+                                self.h298, float(self.t_ndar[0])) / 1000
+        self.assertAlmostEqual(calc_num, data[0], places = 2)
+        calc_sym = tf.h_gurvich(*self.coeffs,
+                                self.dhf298, 
+                                self.h298).evalf(subs={T: self.t_ndar[0]}) / 1000
+        self.assertAlmostEqual(calc_sym, data[0], places = 2)
         highest = tf.h_gurvich(*self.high_t_coeffs, 
                             self.dhf298, 
                             self.h298, 
                             self.highest_t) / 1000
         self.assertAlmostEqual(highest, self.highest_h, places = 2)
-        calc_sym = tf.h_gurvich(*self.coeffs,
-                                self.dhf298, 
-                                self.h298).evalf(subs={T: self.t_ndar[0]}) / 1000
-        self.assertAlmostEqual(calc_sym, data[0], places = 2)
 
     def test_g(self):
         """Gurvich Gibbs energy"""
@@ -161,6 +179,10 @@ class TestGurvich(unittest.TestCase):
                             self.h298, 
                             self.t_ndar) / 1000 # in kJ/mol
         self.assertTrue(np.allclose(data, calc, atol=5e-04))
+        calc_num = tf.g_gurvich(*self.coeffs, 
+                                self.dhf298, 
+                                self.h298, float(self.t_ndar[0])) / 1000
+        self.assertAlmostEqual(calc_num, data[0], places = 2)
         calc_sym = tf.g_gurvich(*self.coeffs,
                                 self.dhf298, 
                                 self.h298).evalf(subs={T: self.t_ndar[0]}) / 1000
@@ -171,5 +193,67 @@ class TestGurvich(unittest.TestCase):
                             self.highest_t) / 1000
         self.assertAlmostEqual(highest, self.highest_g, places = 2)
 
-if __name__ == '__main__':
-    unittest.main(verbosity=2)
+class TestNistShomate(unittest.TestCase):
+    def setUp(self):
+        # liquid water, https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Units=SI&Mask=2#Thermo-Condensed
+        # table columns: Cp, S, -(G° - H°298.15)/T, H° - H°298.15
+        # units: J/mol/K, J/mol/K, J/mol/K, kJ/mol
+        nist_table = """298.	75.38	69.92	69.95	-0.01
+        300.	75.35	70.42	69.95	0.14
+        400.	76.74	92.19	72.91	7.71
+        500.	83.66	109.9	78.58	15.66"""
+        table = np.fromstring(nist_table, sep='\t', dtype=float).reshape(4, 5).T
+        self.t, self.cp, self.s, self.phi, self.dh298 = table
+        self.coeffs = (-203.6060, 1523.290, -3196.413, 2474.455, 3.855326, -256.5478, -488.7163, -285.8304)
+        self.dhf298 = -285.83 * 1000 # in J/mol
+
+    def test_cp(self):
+        """Shomate heat capacity"""
+        f = tf.cp_shomate
+        X = self.t
+        Y = self.cp
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])})
+        num = f(*self.coeffs, float(X[0]))
+        ndar = f(*self.coeffs, X)
+        self.assertAlmostEqual(sym, Y[0], places=2)
+        self.assertAlmostEqual(num, Y[0], places=2)
+        self.assertTrue(np.allclose(ndar, Y, atol=5e-3))
+
+    def test_dh298(self):
+        """Shomate enthalpy increments"""
+        f = tf.dh298_shomate
+        X = self.t
+        Y = self.dh298
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])}) / 1000
+        num = f(*self.coeffs, float(X[0])) / 1000
+        ndar = f(*self.coeffs, X) / 1000
+        self.assertAlmostEqual(sym, Y[0], places=2)
+        self.assertAlmostEqual(num, Y[0], places=2)
+        self.assertTrue(np.allclose(ndar, Y, atol=5e-3))
+
+    def test_s(self):
+        """Shomate entropy"""
+        f = tf.s_shomate
+        X = self.t
+        Y = self.s
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])})
+        num = f(*self.coeffs, float(X[0]))
+        ndar = f(*self.coeffs, X)
+        self.assertAlmostEqual(sym, Y[0], places=2)
+        self.assertAlmostEqual(num, Y[0], places=2)
+        self.assertTrue(np.allclose(ndar, Y, atol=5e-3))
+
+    def test_g(self):
+        """Shomate Gibbs energy"""
+        f = tf.g_shomate
+        X = self.t
+        Y = (- self.phi * self.t + self.dhf298 + self.dh298) / 1000
+        sym = f(*self.coeffs, self.dhf298).evalf(subs={T: float(X[0])}) / 1000
+        num = f(*self.coeffs, self.dhf298, float(X[0])) / 1000
+        ndar = f(*self.coeffs, self.dhf298, X) / 1000
+        self.assertAlmostEqual(sym, Y[0], places=2)
+        self.assertAlmostEqual(num, Y[0], places=2)
+        self.assertTrue(np.allclose(ndar, Y, atol=1.5e-2)) # many rounding errors
+
+class TestMaierKelley(unittest.TestCase):
+    pass
