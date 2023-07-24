@@ -20,7 +20,7 @@ This project is in its **testing** phase of development. At this point in time, 
 
 Please see the Jupyter notebooks in the `examples` folder. The examples are stored along with the full output, which is not very git-friendly, but at least there's no need for you to download and run anything so as to check out what the package can do, and there's also no need for me to think of storing the examples somewhere else.
 
-The project is somewhat documented (meaning "there are `__doc__`-functions for every important thing in the source code).
+The project is somewhat documented (meaning "there are `__doc__`-functions for every important thing in the source code").
 
 ## Installation
 
@@ -28,13 +28,13 @@ You can use it without installing, just download the whole thing and run the exa
 
 To install for subsequent editing (in the developing mode) from a local folder, navigate into the package folder and run
 
-```
+```bash
 pip install -e .
 ```
 
 I think that it is too soon (if ever) for this project to be added to PyPI. However, since the default Python package manager `pip` supports [installing via the version control systems](https://pip.pypa.io/en/stable/topics/vcs-support/), you can use this:
 
-```
+```bash
 pip install "simplethermodynamics @ git+https://github.com/voffch/simplethermodynamics@master"
 ```
 
@@ -42,10 +42,27 @@ This behemoth of a command, if prefixed with `!`, can be used in [Google Colab](
 
 The examples are not installed along with the package and should be downloaded separately.
 
+## Testing
+
+The testing is implemented with the standard Python's `unittest`. From the project folder, run
+
+```bash
+python -m unittest -v
+```
+
+to just execute the tests, or
+
+```bash
+coverage run -m unittest -v
+coverage report -m
+```
+
+to check out the code coverage.
+
 ## Uninstall
 
 ...and so when you finally understand that this is totally unusable, just run
 
-```
+```bash
 pip uninstall simplethermodynamics
 ```
