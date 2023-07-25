@@ -256,4 +256,76 @@ class TestNistShomate(unittest.TestCase):
         self.assertTrue(np.allclose(ndar, Y, atol=1.5e-2)) # many rounding errors
 
 class TestMaierKelley(unittest.TestCase):
+    def test_cp_robie(self):
+        """Robie, Hemingway heat capacity"""
+        f = tf.cp_robie
+        args = (4.260E+02, -2.508E-01, 4.898E+06, -6.078E+03, 9.244E-05)
+        robie_table = """298.15 62.54
+300 62.59
+400 67.18
+500 71.49
+600 74.27
+700 76.00
+800 77.28
+900 78.60
+1000 80.33
+1100 82.76
+1200 86.10
+1300 90.51
+1400 96.12
+1500 103.03"""
+        table = np.fromstring(robie_table, sep=' ', dtype=float).reshape(len(robie_table.splitlines()), 2).T
+        X, Y = table
+        sym = f(*args).evalf(subs={T: float(X[0])})
+        num = f(*args, float(X[0]))
+        ndar = f(*args, X)
+        self.assertAlmostEqual(sym, Y[0], places=2)
+        self.assertAlmostEqual(num, Y[0], places=2)
+        self.assertTrue(np.allclose(ndar, Y, atol=5e-3))
+
+    def test_cp_barin(self):
+        """Barin, Knacke, Kubaschewski heat capacity"""
+        f = tf.cp_barin
+        args = (6.784, -0.478, -0.045, 1.368) # solid Er
+        barin_table = """298 6.712
+300 6.714
+400 6.784
+500 6.869
+600 6.977
+700 7.111
+800 7.270
+900 7.456
+1000 7.669
+1100 7.910
+1200 8.177
+1300 8.472
+1400 8.794
+1500 9.143
+1600 9.520
+1700 9.923
+1795 10.332"""
+        table = np.fromstring(barin_table, sep=' ', dtype=float).reshape(len(barin_table.splitlines()), 2).T
+        X, Y = table
+        sym = f(*args).evalf(subs={T: float(X[0])}) / 4.184
+        num = f(*args, float(X[0])) / 4.184
+        ndar = f(*args, X) / 4.184
+        self.assertAlmostEqual(sym, Y[0], places=3)
+        self.assertAlmostEqual(num, Y[0], places=3)
+        self.assertTrue(np.allclose(ndar, Y, atol=5e-4))
+
+    def test_dh298_mks(self):
+        """Maier-Kelley-Shomate enthalpy increments"""
+        f = tf.dh298_mks
+        args = (106.47, 4.23058e-2, 1.1e6) # an artificial example
+        X = np.array([298.15, 500, 1000])
+        Y = np.array([0, 24223.00086, 101661.0610])
+        sym = f(*args).evalf(subs={T: float(X[0])})
+        num = f(*args, float(X[0]))
+        ndar = f(*args, X)
+        self.assertAlmostEqual(sym, Y[0])
+        self.assertAlmostEqual(num, Y[0])
+        self.assertTrue(np.allclose(ndar, Y))
+
+
+class TestNasa7(unittest.TestCase):
     pass
