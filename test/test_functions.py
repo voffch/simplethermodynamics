@@ -391,3 +391,71 @@ class TestNasa7(unittest.TestCase):
         ndar = f(*self.coeffs, X)
         self.assertAlmostEqual(sym, num)
         self.assertTrue(np.allclose(ndar, Y, atol=0.6))
+
+
+class TestNasa9(unittest.TestCase):
+    def setUp(self):
+        #solid ZnO, Burcat database
+        self.coeffs = (
+            -6.800850490E+04, 
+            -4.929954250E+00, 
+            5.467477100E+00, 
+            8.531084130E-04, 
+            2.028765743E-08, 
+            -7.914355850E-12, 
+            1.188215582E-15, 
+            -4.401863240E+04, 
+            -2.655707580E+01
+        )
+        #Gurvich database (due to the different data sources, relatively large tolerance expected)
+        gurvich_zno = """400.00	  44.660	  -346139.7	  -368423.9	  55.711
+500.00	  46.854	  -341554.8	  -374521.0	  65.932
+600.00	  48.302	  -336793.1	  -381559.1	  74.610
+700.00	  49.411	  -331905.5	  -389405.0	  82.142
+800.00	  50.352	  -326916.4	  -397958.6	  88.803"""
+        table = np.fromstring(gurvich_zno, sep=' ', dtype=float).reshape(len(gurvich_zno.splitlines()), 5).T
+        self.t, self.cp, self.h, self.g, self.s = table
+
+    def test_cp(self):
+        """NASA9 heat capacity"""
+        f = tf.cp_nasa9
+        X = self.t
+        Y = self.cp
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])})
+        num = f(*self.coeffs, float(X[0]))
+        ndar = f(*self.coeffs, X)
+        self.assertAlmostEqual(sym, num)
+        self.assertTrue(np.allclose(ndar, Y, atol=0.2))
+
+    def test_h(self):
+        """NASA9 enthalpy"""
+        f = tf.h_nasa9
+        X = self.t
+        Y = self.h / 1000
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])}) / 1000
+        num = f(*self.coeffs, float(X[0])) / 1000
+        ndar = f(*self.coeffs, X) / 1000
+        self.assertAlmostEqual(sym, num)
+        self.assertTrue(np.allclose(ndar, Y, atol=0.1))
+
+    def test_g(self):
+        """NASA9 Gibbs energy"""
+        f = tf.g_nasa9
+        X = self.t
+        Y = self.g / 1000
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])}) / 1000
+        num = f(*self.coeffs, float(X[0])) / 1000
+        ndar = f(*self.coeffs, X) / 1000
+        self.assertAlmostEqual(sym, num)
+        self.assertTrue(np.allclose(ndar, Y, atol=0.6))
+
+    def test_s(self):
+        """NASA9 entropy"""
+        f = tf.s_nasa9
+        X = self.t
+        Y = self.s
+        sym = f(*self.coeffs).evalf(subs={T: float(X[0])})
+        num = f(*self.coeffs, float(X[0]))
+        ndar = f(*self.coeffs, X)
+        self.assertAlmostEqual(sym, num)
+        self.assertTrue(np.allclose(ndar, Y, atol=0.6))
