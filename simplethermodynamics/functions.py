@@ -457,7 +457,7 @@ def cp_barin(A, B, C, D, T = _symbolic_T, D_subst = False):
 
     In some cases the last term in the equation is substituted by 
     D*1e8*T**(-3), which should be indicated at the bottom 
-    of the respective tablein the textbook.
+    of the respective table in the textbook.
 
     References:
         Barin, I., Knacke, O., Kubaschewski, O. (1977). Thermochemical 
@@ -757,7 +757,7 @@ def g_nasa9(a1, a2, a3, a4, a5, a6, a7, a8, a9, T = _symbolic_T):
         log = sympy.log
     else:
         log = np.log
-    return R * (-(a1/2)*T**(-1) + 2*a2*(1-log(T)) + (a3 - a9)*T - a3*T*log(T) - (a4/2)*T**2 - (a5/6)*T**3 - (a6/12)*T**4 - (a7/20)*T**5 + a8 )
+    return R * (-(a1/2)*T**(-1) + 2*a2*(1-log(T)) + (a3 - a9)*T - a3*T*log(T) - (a4/2)*T**2 - (a5/6)*T**3 - (a6/12)*T**4 - (a7/20)*T**5 + a8)
     
 # Miscellaneous functions
 

@@ -87,18 +87,18 @@ class TestGurvich(unittest.TestCase):
     def setUp(self):
         jsonpath = os.path.join(os.path.dirname(__file__), 'gurvich_Fe2O3.json')
         with open(jsonpath, 'r', encoding="utf-8") as f:
-            zn = json.load(f)
-        self.table = zn['table']
-        self.h298 = 1000 * float(zn['h298-h0'])
-        self.dhf298 = 1000 * float(zn['dhf298'])
-        t_range = [float(x) for x in zn['f'][0]['t']]
-        self.coeffs = [float(x) for x in zn['f'][0]['coefficients'].values()]
+            cmpd = json.load(f)
+        self.table = cmpd['table']
+        self.h298 = 1000 * float(cmpd['h298-h0'])
+        self.dhf298 = 1000 * float(cmpd['dhf298'])
+        t_range = [float(x) for x in cmpd['f'][0]['t']]
+        self.coeffs = [float(x) for x in cmpd['f'][0]['coefficients'].values()]
         all_t = [float(x) for x in self.table['t']]
         t_indices = [all_t.index(x) for x in t_range]
         self.t_slice = slice(t_indices[0], t_indices[1] + 1)
         self.t_ndar = np.array(all_t[self.t_slice])
         # for testing h and g at the highest temperature
-        self.high_t_coeffs = [float(x) for x in zn['f'][-1]['coefficients'].values()]
+        self.high_t_coeffs = [float(x) for x in cmpd['f'][-1]['coefficients'].values()]
         self.highest_t = all_t[-1]
         self.highest_h = float(self.table['ht-h0'][-1]) \
                         + (self.dhf298 / 1000) - (self.h298 / 1000)
@@ -312,6 +312,11 @@ class TestMaierKelley(unittest.TestCase):
         self.assertAlmostEqual(sym, Y[0], places=3)
         self.assertAlmostEqual(num, Y[0], places=3)
         self.assertTrue(np.allclose(ndar, Y, atol=5e-4))
+        # testing the D_subst parameter - an artificially constructed example
+        A, B, C, D = args
+        x = 1000
+        calc = 4.184 * (A + B*1e-3*x + C*1e5*x**(-2) + D*1e8*x**(-3))
+        self.assertAlmostEqual(f(*args, x, True), calc)
 
     def test_dh298_mks(self):
         """Maier-Kelley-Shomate enthalpy increments"""
@@ -459,3 +464,36 @@ class TestNasa9(unittest.TestCase):
         ndar = f(*self.coeffs, X)
         self.assertAlmostEqual(sym, num)
         self.assertTrue(np.allclose(ndar, Y, atol=0.6))
+
+
+class TestMisc(unittest.TestCase):
+    def setUp(self):
+        #solid ZnO, Burcat database
+        self.temps = np.linspace(300, 1000, 8)
+
+    def test_poly_from_dict(self):
+        """Poly from dict function generator"""
+        d = {-2 : 0.1, 0 : 12, 0.5: -1.6}
+        f = tf.poly_from_dict
+        X = self.temps
+        Y = 0.1*X**(-2) + 12 - 1.6*X**(0.5)
+        sym = f(d).evalf(subs={T: float(X[0])})
+        num = f(d, float(X[0]))
+        ndar = f(d, X)
+        self.assertIsInstance(f(d), sympy.Basic)
+        self.assertAlmostEqual(sym, num)
+        self.assertTrue(np.allclose(ndar, Y))
+
+    def test_expr_from_dict(self):
+        """Expression from dict function generator"""
+        d = {"T**(-2)" : 0.1, "1" : 123, "T*log(T)": -1.6}
+        f = tf.expr_from_dict
+        f_lambda = sympy.lambdify(T, f(d), modules="numpy")
+        X = self.temps
+        Y = 0.1*X**(-2) + 123 - 1.6*X*np.log(X)
+        sym = f(d).evalf(subs={T: float(X[0])})
+        num = f_lambda(X[0])
+        ndar = f_lambda(X)
+        self.assertIsInstance(f(d), sympy.Basic)
+        self.assertAlmostEqual(sym, num)
+        self.assertTrue(np.allclose(ndar, Y))
