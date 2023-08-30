@@ -46,8 +46,11 @@ class Phase:
     class SymbolicPhase:
         """The internal class of Phase for the symbolic thermodynamics.
         
+        This class is not intended to function on its own and should only be
+        used from inside the wrapping Phase class.
+
         This class is designed to compute the thermodynamic functions that were
-        not defined in the constructor on-the-fly, when first requested. For
+        not defined in the constructor on-the-fly when first requested. For
         example, if the Phase was initialized with the Gibbs energy only,
         heat capacity is calculated only upon the first access to the cp 
         attribute.
@@ -206,7 +209,7 @@ class Phase:
                 self._s298 = self.s.evalf(subs={T:298.15})
             return self._s298
     
-    def __init__(self, name, state='undefined', **kwargs):
+    def __init__(self, name, state='undefined', limits=[298.15, np.inf], **kwargs):
         """The constructor for the Phase class.
         
         Initializes a Phase with the given name and state, and then
@@ -216,13 +219,27 @@ class Phase:
         See also the Phase.SymbolicPhase constructor.
 
         Examples:
-            >>> ph = Phase('Substance', 'solid', cp=100, h298=-200000, s298=200)
+            >>> ph = Phase(
+                    'Substance', 
+                    'solid', 
+                    [300, 1000], 
+                    cp=100, 
+                    h298=-200000, 
+                    s298=200
+                )
 
         Args:
             name:
                 A string describing the name of the phase.
             state:
                 A string describing the aggregate state (e.g., solid or gas).
+            limits:
+                A 2-element list with [lower, upper] intended 
+                temperature limits where the thermodynamic functions for this 
+                phase are designed to be meaningful. Currently, this parameter 
+                is just for the reference. TODO: display a warning when the 
+                user tries to compute a thermodynamic value outside the set 
+                limits.
             kwargs:
                 Valid keys: g, h, s, cp, s298, h298. These arguments represent
                 various thermodynamic functions, defined as either numbers,
@@ -238,6 +255,9 @@ class Phase:
         """
         self.name = name
         self.state = state
+        self.limits = limits
+        # TODO: try to automatically set the limits based on the piecewise
+        # function(s) in kwargs if the limits parameter is not explicitly given
         self.symbolic = self.SymbolicPhase(kwargs)
 
     def cp(self, t):
@@ -272,7 +292,7 @@ class Phase:
             Gibbs function, enthalpy, entropy and isobaric heat 
             capacity (all functions are symbolic).
         """
-        ph_dict = {'name' : self.name, 'state' : self.state}
+        ph_dict = {'name' : self.name, 'state' : self.state, 'limits': self.limits}
         funcs_dict = {prop : str(getattr(self.symbolic, prop)) 
                       for prop in ['g', 'cp', 'h', 's']}
         ph_dict.update(funcs_dict)
@@ -328,6 +348,7 @@ class Phase:
         mock_factsage_header = f'''
 Phase: {self.name}
 State: {self.state}
+T: {self.limits} K
 ________{col_sep}________{col_sep}___________{col_sep}___________{col_sep}________{col_sep}___________
   T(K)  {col_sep}Cp(J/K) {col_sep}    H(J)   {col_sep}   G(J)    {col_sep} S(J/K) {col_sep} H-H298(J)
 ________{col_sep}________{col_sep}___________{col_sep}___________{col_sep}________{col_sep}___________
@@ -649,17 +670,21 @@ class Compound:
                 # only one stable phase anyway, let's just alias the existing phase
                 self.stable = self.phases[transitions[0]['name']]
             else:
-                expr_cond = []
+                name_cond = []
                 for i in range(len(transitions) - 1):
-                    expr_cond.append((transitions[i]['name'], T <= transitions[i + 1]['t']))
-                expr_cond.append((transitions[-1]['name'], True))
-                expr_cond = [(self.phases[name].symbolic.g, cond) for name, cond in expr_cond]
+                    name_cond.append((transitions[i]['name'], T <= transitions[i + 1]['t']))
+                name_cond.append((transitions[-1]['name'], True))
+                expr_cond = [(self.phases[name].symbolic.g, cond) for name, cond in name_cond]
                 state_order = ['solid', 'solid,liquid', 'liquid', 'gas']
                 key_func = lambda x : state_order.index(x) if x in state_order else 100
                 states = sorted(set(self.phases[tr['name']].state for tr in transitions), key=key_func)
                 stable_state = ','.join(states)
-                self.stable = Phase('stable', stable_state, g=simplify(Piecewise(*expr_cond)))
-                #TODO: init other functions, in addition to g, if available (pre-computed) in the self.phases
+                used_phases = [self.phases[nc[0]] for nc in name_cond]
+                lower_limits = [p.limits[0] for p in used_phases]
+                upper_limits = [p.limits[1] for p in used_phases]
+                stable_limits = [min(lower_limits), max(upper_limits)]
+                self.stable = Phase('stable', stable_state, stable_limits, g=simplify(Piecewise(*expr_cond)))
+                # TODO: init other functions, in addition to g, if available (pre-computed) in the self.phases
         else:
             if type(stable) == Phase:
                 self.stable = stable
