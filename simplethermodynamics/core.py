@@ -209,7 +209,7 @@ class Phase:
                 self._s298 = self.s.evalf(subs={T:298.15})
             return self._s298
     
-    def __init__(self, name, state='undefined', limits=[298.15, np.inf], **kwargs):
+    def __init__(self, name, state='undefined', limits=None, **kwargs):
         """The constructor for the Phase class.
         
         Initializes a Phase with the given name and state, and then
@@ -255,10 +255,11 @@ class Phase:
         """
         self.name = name
         self.state = state
-        self.limits = limits
-        # TODO: try to automatically set the limits based on the piecewise
-        # function(s) in kwargs if the limits parameter is not explicitly given
         self.symbolic = self.SymbolicPhase(kwargs)
+        if limits:
+            self.limits = limits
+        else:
+            self.limits = find_phase_limits(self)
 
     def cp(self, t):
         """Replaces itself with the lambda-function when called."""
@@ -404,7 +405,7 @@ ________{col_sep}________{col_sep}___________{col_sep}___________{col_sep}______
         func = func.lower()
         if func in valid_funcs:
             x = np.linspace(t_min, t_max, 100)
-            if func.lower() in list(valid_funcs.keys())[:-1]:
+            if func in list(valid_funcs.keys())[:-1]:
                 f = getattr(self, func)
             else:
                 f = lambda t : self.h(t) - self.h(298.15)
@@ -421,7 +422,7 @@ ________{col_sep}________{col_sep}___________{col_sep}___________{col_sep}______
             raise ValueError(f'Cannot plot "{func}"')
 
 
-def find_phase_limits(phase, default_limits=(298.15, 1e6)):
+def find_phase_limits(phase, default_limits=[298.15, 1e6]):
     """Finds the lower and upper limits of the Gibbs function.
 
     Outside the returned limits, the Gibbs functions are expected
@@ -468,14 +469,14 @@ def find_phase_limits(phase, default_limits=(298.15, 1e6)):
     return limits
 
 
-def transition_temperatures(phase0, phase1, t0 = 298.15):
-    """Finds all possible phase transitions above t0.
+def transition_temperatures(phase0, phase1):
+    """Finds all possible phase transitions.
 
     For two Phase instances, tries to obtain all possible transition 
     temperatures (i.e., all temperatures where the Gibbs energies of both
-    phases are equal). For the piecewise Gibbs functions, uses 
-    only the common temperature range where the Gibbs functions of both 
-    phases have meaningful values (are not constant).
+    phases are equal). Uses only the common temperature range where the 
+    Gibbs functions of both phases have meaningful values, relying on
+    the Phase.limits properties of the respective phases.
 
     The order in which the phases are listed doesn't matter.
     
@@ -484,24 +485,23 @@ def transition_temperatures(phase0, phase1, t0 = 298.15):
             A Phase instance.
         phase1:
             A Phase instance.
-        t0:
-            The minimal temperature of interest.
 
     Returns:
         A list of dicts {'from': x0, 'to': x1, 'T': x2}, 
         where the 'from' and 'to' values (x0 and x1) are the names 
         of the corresponding phases, and x2 is the transition temperature.
 
-        A single string with the name of the most stable phase (above t0)
-        if there's no transition temperature.
+        A single string with the name of the most stable phase (at the minimal 
+        common temperature range for both phases) if there's no transition 
+        temperature found.
+
+        None if the phases do not share a common temperature range.
     """
-    improbable_t = 1e6
-    individual_limits = [find_phase_limits(phase, (t0, improbable_t)) for phase in [phase0, phase1]]
+    individual_limits = [phase.limits for phase in [phase0, phase1]]
     # finding the intersection of the temperature ranges of both phases
     limits = [max([x[0] for x in individual_limits]), min([x[1] for x in individual_limits])]
-    # restricting the lower limit to t0
-    if limits[0] < t0:
-        limits[0] = t0
+    if limits[0] > limits[1]: # the limits ranges do not intersect
+        return None
     
     # squaring the Gibbs function difference and finding all the roots between the limits
     fun_squared = lambda t : (phase0.g(t) - phase1.g(t))**2
@@ -521,7 +521,7 @@ def transition_temperatures(phase0, phase1, t0 = 298.15):
     fun = lambda t : phase0.g(t) - phase1.g(t)
     if len(limits) == 2:
         # no transition detected
-        transitions = phase0.name if fun(t0) < 0 else phase1.name
+        transitions = phase0.name if fun(limits[0]) < 0 else phase1.name
     else:
         transitions = []
         for t in limits[1:-1]:
@@ -534,39 +534,31 @@ def transition_temperatures(phase0, phase1, t0 = 298.15):
     return transitions
 
 
-def standard_transitions(phases, t0 = 298.15):
+def standard_transitions(phases):
     """Finds the sequence of standard phase transitions upon heating.
     
     This function should determine the sequence of all the standard
     phase transitions occurring between phases upon heating.
 
-    This function doesn't check if the Gibbs functions are meaningful at t0.
-    Hence, for the phases for which the Gibbs functions are not defined
-    (not stated) at t0, the following should be true: 
-        G(undefined, t0) > G(defined, t0),
-    to avoid erroneous determination of the stablest phase at t0.
-
     Args:
         phases:
             A dict of Phase instances with the names of the Phases
             as keys (e.g., as stored in Compound.phases).
-        t0:
-            The lowest temperature of interest, where the first
-            stable phase is expected to be determined.
 
     Returns:
         A list of dicts [{'t' : temperature_K, 'name' : phase_name}],
         where the phase with phase_name is stable above temperature_K.
-        Always returns at least one phase stable at t0 (with the lowest 
-        Gibbs function at t0).
+        Always returns at least one phase that is stable at the lowest 
+        temperature of all the temperature limits.
     """
     all_trans = []
     for phase_pair in itertools.combinations(phases.values(), 2):
-        trans = transition_temperatures(*phase_pair, t0)
+        trans = transition_temperatures(*phase_pair)
         if type(trans) != str:
             all_trans.extend(trans)
 
     names = list(phases.keys())
+    t0 = min(phase.limits[0] for phase in phases.values())
     gibbses_t0 = [phase.g(t0) for phase in phases.values()]
     stable_phases = [{'t' : t0, 'name' : names[np.argmin(gibbses_t0)]}]
             
@@ -666,6 +658,10 @@ class Compound:
         if not stable or not transitions:
             # initializing the stable phase
             transitions = standard_transitions(self.phases)
+            # TODO: what if the phases do not intersect (i.e., when there's 
+            # a temperature range where no phase is defined, but phases exist
+            # above and below this range, so there's no standard transition 
+            # between the lower- and higher-temperature phases)?
             if len(transitions) == 1:
                 # only one stable phase anyway, let's just alias the existing phase
                 self.stable = self.phases[transitions[0]['name']]
