@@ -138,6 +138,25 @@ def record_to_phases(record, extrapolation_extent = 20.0):
     return (ph, info)
 
 
+class TestCompoundBasic(unittest.TestCase):
+    def setUp(self):
+        self.cmpd = Compound('zero_cmpd', {'zero_phase' : Phase('zero_phase', g=0)})
+
+    def test_table(self):
+        """Compound.table returning a nonzero string"""
+        table = self.cmpd.table(show=False)
+        self.assertIsInstance(table, str)
+        self.assertTrue(len(table))
+
+    def test_plot(self):
+        """Compound.plot returning a matplotlib (fig, axes) tuple"""
+        plot = self.cmpd.plot(show=False)
+        self.assertIsInstance(plot, tuple)
+        self.assertEqual(len(plot), 2)
+        self.assertIsInstance(plot[0], matplotlib.figure.Figure)
+        self.assertIsInstance(plot[1], matplotlib.axes.Axes)
+
+
 class TestGurvichCompoundAndDatabase(unittest.TestCase):
     """Testing Compound and ThermodynamicDatabase with real-life data"""
     def setUp(self):
@@ -169,6 +188,9 @@ class TestGurvichCompoundAndDatabase(unittest.TestCase):
         Y = np.array(self.gurvich['table']['s'][2:], dtype=float)
         calc = self.cmpd.s(X)
         self.assertTrue(np.allclose(Y, calc, atol=5e-04))
+        s298_gurvich = Y[0]
+        s298_symbolic = float(self.cmpd.symbolic.s298)
+        self.assertAlmostEqual(s298_gurvich, s298_symbolic, places=3)
 
     def test_dh(self):
         """Testing Compound H(T) - H(298.15) for Fe2O3"""
@@ -177,6 +199,9 @@ class TestGurvichCompoundAndDatabase(unittest.TestCase):
         Y -= Y[0]
         calc = (self.cmpd.h(X) - self.cmpd.h(298.15)) / 1000
         self.assertTrue(np.allclose(Y, calc, atol=1e-03))
+        h298_gurvich = float(self.gurvich['dhf298'])
+        h298_symbolic = float(self.cmpd.symbolic.h298) / 1000
+        self.assertAlmostEqual(h298_gurvich, h298_symbolic, places=3)
 
     def test_phi(self):
         """Testing Compound Φ(T) for Fe2O3"""
@@ -186,18 +211,20 @@ class TestGurvichCompoundAndDatabase(unittest.TestCase):
         calc = - (self.cmpd.g(X) - h0) / X
         self.assertTrue(np.allclose(Y, calc, atol=3e-03))
 
-    '''
-    def test_table(self):
-        """Compound.table returning a nonzero string"""
-        table = self.cmpd.table(show=False)
-        self.assertIsInstance(table, str)
-        self.assertTrue(len(table))
-
-    def test_plot(self):
-        """Compound.table returning a matplotlib (fig, axes) tuple"""
-        plot = self.cmpd.plot(show=False)
-        self.assertIsInstance(plot, tuple)
-        self.assertEqual(len(plot), 2)
-        self.assertIsInstance(plot[0], matplotlib.figure.Figure)
-        self.assertIsInstance(plot[1], matplotlib.axes.Axes)
-    '''
+    def test_store_and_load_db(self):
+        """Testing storing and loading ThermodynamicDatabase"""
+        db = ThermodynamicDatabase([self.cmpd])
+        db_fromdict = ThermodynamicDatabase({self.cmpd.name : self.cmpd})
+        self.assertEqual(db[self.cmpd.name].symbolic.g, 
+                         db_fromdict[self.cmpd.name].symbolic.g)
+        del db[self.cmpd.name]
+        db[self.cmpd.name] = self.cmpd
+        filename = 'temp.json'
+        db.dump(filename)
+        db = ThermodynamicDatabase(filename)
+        strdb = db.dumps()
+        db = ThermodynamicDatabase(strdb)
+        self.assertEqual(len(db), 1)
+        self.assertEqual(str(db[self.cmpd.name].symbolic.g), 
+                         str(self.cmpd.symbolic.g))
+        os.remove(filename)
