@@ -153,10 +153,7 @@ class Phase:
                 raise ValueError(f"{given_parameters} given, but EITHER 'g' OR 'cp', 'h298', 's298' must be defined")
             for key in ['g', 'cp', 'h298', 's298', 'h', 's']:
                 if key in fdict:
-                    if type(fdict[key]) == str:
-                        value = sympify(fdict[key])
-                    else:
-                        value = fdict[key]
+                    value = sympify(fdict[key])
                 else:
                     value = None
                 setattr(self, '_' + key, value)
@@ -263,22 +260,38 @@ class Phase:
 
     def cp(self, t):
         """Replaces itself with the lambda-function when called."""
-        self.cp = lambdify(T, self.symbolic.cp, 'numpy')
+        f = lambdify(T, self.symbolic.cp, 'numpy')
+        if self.symbolic.cp.is_number:
+            self.cp = lambda a : np.full_like(a, f(a))
+        else:
+            self.cp = f
         return self.cp(t)
 
     def h(self, t):
         """Replaces itself with the lambda-function when called."""
-        self.h = lambdify(T, self.symbolic.h, 'numpy')
+        f = lambdify(T, self.symbolic.h, 'numpy')
+        if self.symbolic.h.is_number:
+            self.h = lambda a : np.full_like(a, f(a))
+        else:
+            self.h = f
         return self.h(t)
     
     def s(self, t):
         """Replaces itself with the lambda-function when called."""
-        self.s = lambdify(T, self.symbolic.s, 'numpy')
+        f = lambdify(T, self.symbolic.s, 'numpy')
+        if self.symbolic.s.is_number:
+            self.s = lambda a : np.full_like(a, f(a))
+        else:
+            self.s = f
         return self.s(t)
     
     def g(self, t):
         """Replaces itself with the lambda-function when called."""
-        self.g = lambdify(T, self.symbolic.g, 'numpy')
+        f = lambdify(T, self.symbolic.g, 'numpy')
+        if self.symbolic.g.is_number:
+            self.g = lambda a : np.full_like(a, f(a))
+        else:
+            self.g = f
         return self.g(t)
     
     def asdict(self):
