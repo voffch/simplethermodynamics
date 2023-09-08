@@ -8,6 +8,7 @@ from sympy import ln, log, Piecewise, Symbol, \
 import matplotlib.pyplot as plt
 import json
 import itertools
+import re
 
 
 T = Symbol('T')
@@ -713,9 +714,9 @@ class Compound:
         return len(self.phases)
     
     def __str__(self):
-        return "Compound '{}' contains {} phases: {}".format( self.name, 
-                                                              len(self),
-                                                              ', '.join(f'{x.name} ({x.state})' for x in self.phases.values()))
+        return "{} ({}) : {}".format(self.name, 
+                                     self.formula,
+                                     ', '.join(f'{p.name} ({p.state})' for p in self.phases.values()))
     
     @property
     def symbolic(self):
@@ -802,7 +803,7 @@ class Compound:
             None if show == True,
             A string containing the output results - otherwise.
         """
-        header = f'Compound: {self.name}\nFormula: {self.formula}\n{str(self)}\n\n'
+        header = f'Compound name (formula) : phase (state), phase (state), etc.\n{str(self)}\n\n'
         len_transitions = len(self.transitions)
         if len_transitions == 1:
             transition_table = f"The only stable phase is: {self.transitions[0]['name']}"
@@ -941,7 +942,39 @@ class ThermodynamicDatabase:
     
     def __len__(self):
         return len(self.compounds)
+
+    def __str__(self):
+        return "Database info:\n{}\n\nContains {} compounds:\n{}".format(self.info, 
+                                   len(self),
+                                   '\n'.join(f'{i + 1}. {str(c)}' for i, c in enumerate(self.compounds.values())))
     
+    def query(self, attr, pattern):
+        """Query the database for Compounds whose attribute matches the pattern.
+
+        Returns the list of Compound instances whose attribute match the 
+        pattern.
+        
+        Args:
+            attr:
+                An attribute supported by the Compound class, such as
+                'name', 'formula' or 'info'.
+            pattern:
+                A simple case-insensitive pattern where * means a sequence of 
+                zero or more symbols, and ? means one or more symbol. These 
+                special symbols are replaced with '.*' and '.?', respectively,
+                and then the pattern is fed into re.match().
+
+        Returns:
+            A list of matching Compounds (empty if no match found).
+
+        Raises:
+            Whatever is raised by re.match.
+        """
+        regexp = pattern.replace('*', '.*').replace('?', '.?')
+        return [c 
+                for c in self.compounds.values() 
+                if re.match(regexp, getattr(c, attr), re.IGNORECASE)]
+
     def asdict(self):
         """Returns the dict representation of the ThermodynamicDatabase."""
         return {
