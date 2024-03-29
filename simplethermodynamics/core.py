@@ -164,9 +164,16 @@ class Phase:
             """Symbolic absolute enthalpy (e.g., with respect to SER)."""
             if self._h is None:
                 if self._g is not None:
-                    self._h = simplify(-diff(self.g / T, T) * T**2)
+                    self._h = -diff(self.g / T, T) * T**2
                 else:
-                    self._h = simplify(self.h298 + integrate(self.cp, (T, 298.15, T), heurisch=True))
+                    self._h = self.h298 + integrate(self.cp, (T, 298.15, T), heurisch=True).rewrite(sympy.Piecewise)
+                    # A rewrite is necessary because sometimes integrate 
+                    # returns expressions with min() and max(), which
+                    # cannot then be lambdified properly.
+                    # Note that, at least for some of the resulting functions,
+                    # sympy.piecewise_fold hangs in some versions of sympy 
+                    # (e.g., 1.11.1). As piecewise_fold is called by simplify,
+                    # extreme caution should be taken.
             return self._h
                 
         @property
@@ -174,23 +181,24 @@ class Phase:
             """Symbolic absolute entropy."""
             if self._s is None:
                 if self._g is not None:
-                    self._s = simplify(-(self.g - self.h) / T)
+                    self._s = -(self.g - self.h) / T
                 else:
-                    self._s = simplify(self.s298 + integrate(self.cp / T, (T, 298.15, T), heurisch=True))
+                    self._s = self.s298 + integrate(self.cp / T, (T, 298.15, T), heurisch=True).rewrite(sympy.Piecewise)
+                    # see the comments on rewrite above
             return self._s
             
         @property
         def cp(self):
             """Symbolic isobaric heat capacity."""
             if self._cp is None:
-                self._cp = simplify(diff(self.h, T))
+                self._cp = diff(self.h, T)
             return self._cp
                 
         @property
         def g(self):
             """Symbolic Gibbs energy."""
             if self._g is None:
-                self._g = simplify(self.h - T*self.s)
+                self._g = self.h - T*self.s
             return self._g
         
         @property
@@ -565,6 +573,7 @@ def standard_transitions(phases):
         Always returns at least one phase that is stable at the lowest 
         temperature of all the temperature limits.
     """
+    # TODO: prevent this from running in cases of only one phase
     all_trans = []
     for phase_pair in itertools.combinations(phases.values(), 2):
         trans = transition_temperatures(*phase_pair)
@@ -694,7 +703,7 @@ class Compound:
                 lower_limits = [p.limits[0] for p in used_phases]
                 upper_limits = [p.limits[1] for p in used_phases]
                 stable_limits = [min(lower_limits), max(upper_limits)]
-                self.stable = Phase('stable', stable_state, stable_limits, g=simplify(Piecewise(*expr_cond)))
+                self.stable = Phase('stable', stable_state, stable_limits, g=Piecewise(*expr_cond))
                 # TODO: init other functions, in addition to g, if available (pre-computed) in the self.phases
         else:
             if type(stable) == Phase:
@@ -940,7 +949,7 @@ class ThermodynamicDatabase:
     
     def __delitem__(self, key):
         del self.compounds[key]
-    
+
     def __len__(self):
         return len(self.compounds)
 
