@@ -18,6 +18,8 @@ _symbolic_T = sympy.Symbol('T')
 
 # Einstein and Debye functions
 
+# TODO: make Einsteins and Debyes return 0 at (or even very close to) 0 K
+
 def cv_einstein(alpha, theta, T = _symbolic_T):
     """Heat capacity; Einstein function; J/mol/K
 

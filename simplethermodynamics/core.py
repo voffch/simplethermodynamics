@@ -568,7 +568,8 @@ def standard_transitions(phases):
     all_trans = []
     for phase_pair in itertools.combinations(phases.values(), 2):
         trans = transition_temperatures(*phase_pair)
-        if type(trans) != str:
+        # consider rewriting so that transition_temperatures never returns None
+        if trans is not None and type(trans) != str:
             all_trans.extend(trans)
 
     names = list(phases.keys())
@@ -947,7 +948,35 @@ class ThermodynamicDatabase:
         return "Database info:\n{}\n\nContains {} compounds:\n{}".format(self.info, 
                                    len(self),
                                    '\n'.join(f'{i + 1}. {str(c)}' for i, c in enumerate(self.compounds.values())))
-    
+
+    def extend(self, other):
+        """Adds all compounds from the other ThermodynamicDatabase.
+
+        If the compound in the other ThermodynamicDatabase has the same
+        name as the one in this ThermodynamicDatabase, overwrites the
+        previous records, otherwise adds a new compound record.
+
+        Also joins the info strings.
+
+        Modifies the existing ThermodynamicDatabase in place.
+
+        Args:
+            other:
+                A ThermodynamicDatabase instance from which all compounds
+                are to be added to this ThermodynamicDatabase.
+
+        Returns:
+            None.
+
+        Raises:
+            TypeError if the type of the argument is wrong.
+        """
+        if not isinstance(other, type(self)):
+            raise TypeError("Can only extend by a ThermodynamicDatabase")
+        for name, cmpd in other.compounds.items():
+            self[name] = cmpd
+        self.info = f'{self.info}\n{other.info}'
+
     def query(self, attr, pattern):
         """Query the database for Compounds whose attribute matches the pattern.
 
@@ -1035,7 +1064,7 @@ class ThermodynamicDatabase:
         self._json_dict_into_db(file_dict)
             
     def _json_dict_into_db(self, file_dict):
-        """Processes the json-serialized thermodynamic info dict.
+        """Processes the json-serialized thermodynamics info dict.
         
         Parses the info from the file_dict, stores the results in the 
         current instance of ThermodynamicDatabase.
